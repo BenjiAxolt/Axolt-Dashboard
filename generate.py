@@ -1,3 +1,5 @@
+$ cat /private/tmp/claude-501/-Users-benji-Axolt/e3cef2c9-0ad2-46a6-b68f-8b41ec38b305/scratchpad/generate_v4.py
+
 import os
 import requests
 from datetime import datetime, timezone
@@ -77,17 +79,38 @@ def fmt_followers(n):
     return str(int(n))
 
 
+ARROW_SVG = "<svg width='8' height='8' viewBox='0 0 8 8'><path d='M4 0v6M1 4l3 3 3-3' stroke='#44444f' stroke-width='1.2' fill='none'/></svg>"
+
+
+def conv_pct(a, b):
+    if not b:
+        return ""
+    return str(round(a / b * 100)) + "%"
+
+
+def drop_row(pct_str, label, color):
+    if not pct_str:
+        return ""
+    return (
+        "<div class=f-drop>"
+        "<div class=f-drop-inner>"
+        + ARROW_SVG +
+        "<span style='color:" + color + "'>" + pct_str + " " + label + "</span>"
+        "</div>"
+        "</div>"
+    )
+
+
 def make_bar(label, count, total, color, faded=False):
     pct = max(4, round(count / max(total, 1) * 100))
     opacity = "opacity:0.35;" if faded and count == 0 else ""
-    txt = color if count else "#44444f"
+    lbl_color = "#44444f" if (faded and count == 0) else color
     return (
         "<div class=f-row>"
-        "<div class=f-lbl>" + label + "</div>"
+        "<div class='f-lbl' style='color:" + lbl_color + "'>" + label + "</div>"
         "<div class=f-track>"
-        "<div class=f-bar style='width:" + str(pct) + "%;background:" + color + ";" + opacity + "min-width:30px'>" + str(count) + "</div>"
+        "<div class=f-bar style='width:" + str(pct) + "%;background:" + color + ";" + opacity + "min-width:36px'>" + str(count) + "</div>"
         "</div>"
-        "<div class=f-n style='color:" + txt + "'>" + str(count) + "</div>"
         "</div>"
     )
 
@@ -164,12 +187,17 @@ def build_dashboard(inf_pages, clinic_pages):
 
     # Influencer funnel
     inf_funnel = (
-        make_bar("Total in DB",       total_inf, total_inf, "#534AB7") +
-        make_bar("Contacted",         contacted, total_inf, "#7F77DD") +
-        make_bar("Intake Filled",     intake,    total_inf, "#BA7517") +
-        make_bar("Product Delivered", delivered, total_inf, "#639922") +
-        make_bar("14-Day Survey",     survey_14, total_inf, "#534AB7", faded=True) +
-        make_bar("30-Day Survey",     survey_30, total_inf, "#534AB7", faded=True) +
+        make_bar("Total in DB",       total_inf,   total_inf, "#534AB7") +
+        drop_row(conv_pct(contacted,  total_inf),  "contacted",        "#7F77DD") +
+        make_bar("Contacted",         contacted,   total_inf, "#7F77DD") +
+        drop_row(conv_pct(intake,     contacted),  "filled intake",    "#BA7517") +
+        make_bar("Intake Filled",     intake,      total_inf, "#BA7517") +
+        drop_row(conv_pct(delivered,  intake),     "delivered",        "#639922") +
+        make_bar("Product Delivered", delivered,   total_inf, "#639922") +
+        "<div style='height:6px'></div>" +
+        make_bar("14-Day Survey",     survey_14,   total_inf, "#534AB7", faded=True) +
+        make_bar("30-Day Survey",     survey_30,   total_inf, "#534AB7", faded=True) +
+        "<div style='height:6px'></div>" +
         make_bar("Declined",          declined_inf, total_inf, "#E24B4A")
     )
 
@@ -181,11 +209,15 @@ def build_dashboard(inf_pages, clinic_pages):
     cli_declined= sum(1 for p in clinic_pages if get_prop(p, "Stage") == "Declined")
 
     cli_funnel = (
-        make_bar("Contacted",          total_cli,   total_cli, "#1D9E75") +
-        make_bar("Replied",            cli_replied, total_cli, "#1D9E75") +
-        make_bar("Meeting Booked",     cli_meeting, total_cli, "#BA7517", faded=True) +
-        make_bar("Partnership Agreed", cli_partner, total_cli, "#639922", faded=True) +
-        make_bar("Declined",           cli_declined,total_cli, "#E24B4A")
+        make_bar("Contacted",          total_cli,    total_cli, "#1D9E75") +
+        drop_row(conv_pct(cli_replied, total_cli),   "replied",            "#1D9E75") +
+        make_bar("Replied",            cli_replied,  total_cli, "#1D9E75") +
+        drop_row(conv_pct(cli_meeting, cli_replied), "meeting booked",     "#BA7517") +
+        make_bar("Meeting Booked",     cli_meeting,  total_cli, "#BA7517", faded=True) +
+        drop_row(conv_pct(cli_partner, cli_meeting), "partnership agreed", "#639922") +
+        make_bar("Partnership Agreed", cli_partner,  total_cli, "#639922", faded=True) +
+        "<div style='height:6px'></div>" +
+        make_bar("Declined",           cli_declined, total_cli, "#E24B4A")
     )
 
     # Build HTML
@@ -213,12 +245,13 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
 .cv{font-size:24px;font-weight:700;line-height:1}
 .cs{font-size:10px;color:var(--mu);margin-top:4px}
 .slbl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--d);margin-bottom:10px}
-.funnel{display:flex;flex-direction:column;gap:5px;margin-bottom:24px}
+.funnel{display:flex;flex-direction:column;gap:3px;margin-bottom:24px}
 .f-row{display:flex;align-items:center;gap:10px}
 .f-lbl{width:160px;font-size:11px;color:var(--mu);text-align:right;flex-shrink:0}
-.f-track{flex:1;background:var(--s2);border-radius:3px;height:20px;overflow:hidden}
+.f-track{flex:1;background:var(--s2);border-radius:3px;height:22px;overflow:hidden}
 .f-bar{height:100%;border-radius:3px;display:flex;align-items:center;padding:0 10px;font-size:10px;font-weight:700;color:rgba(255,255,255,.9)}
-.f-n{width:24px;font-size:12px;font-weight:700;text-align:right;flex-shrink:0}
+.f-drop{display:flex;align-items:center;gap:10px;height:16px}
+.f-drop-inner{display:flex;align-items:center;gap:4px;font-size:9px;font-weight:600;margin-left:170px}
 .seed-hd{display:flex;gap:10px;padding:5px 13px;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--d);margin-bottom:4px}
 .seed-list{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
 .seed-row{display:flex;align-items:center;gap:10px;background:var(--s);border:1px solid var(--b);border-left:3px solid var(--g);border-radius:6px;padding:10px 13px}
