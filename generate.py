@@ -1,5 +1,3 @@
-$ cat /private/tmp/claude-501/-Users-benji-Axolt/e3cef2c9-0ad2-46a6-b68f-8b41ec38b305/scratchpad/generate_v4.py
-
 import os
 import requests
 from datetime import datetime, timezone
