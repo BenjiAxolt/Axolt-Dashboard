@@ -196,6 +196,7 @@ def build_dashboard(inf_pages, clinic_pages):
         make_bar("14-Day Survey",     survey_14,   total_inf, "#534AB7", faded=True) +
         make_bar("30-Day Survey",     survey_30,   total_inf, "#534AB7", faded=True) +
         "<div style='height:6px'></div>" +
+        drop_row(conv_pct(declined_inf, contacted), "of contacted declined", "#E24B4A") +
         make_bar("Declined",          declined_inf, total_inf, "#E24B4A")
     )
 
@@ -215,6 +216,7 @@ def build_dashboard(inf_pages, clinic_pages):
         drop_row(conv_pct(cli_partner, cli_meeting), "partnership agreed", "#639922") +
         make_bar("Partnership Agreed", cli_partner,  total_cli, "#639922", faded=True) +
         "<div style='height:6px'></div>" +
+        drop_row(conv_pct(cli_declined, total_cli), "of contacted declined", "#E24B4A") +
         make_bar("Declined",           cli_declined, total_cli, "#E24B4A")
     )
 
