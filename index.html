@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Axolt Seeding Dashboard</title>
+<style>
+  :root {
+    --purple:#7F77DD;--teal:#1D9E75;--amber:#BA7517;--green:#639922;
+    --dark-purple:#534AB7;--pink:#C026A8;--red:#E24B4A;--grey:#888780;
+    --bg:#0f0f12;--surface:#1a1a20;--surface2:#22222a;--border:#2a2a34;
+    --text:#e8e8f0;--muted:#7a7a88;--dim:#44444f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;line-height:1.5}
+  .tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+  .tab{padding:13px 24px;cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tab.active{color:var(--purple);border-bottom-color:var(--purple)}
+  .tab:nth-child(2).active{color:var(--teal);border-bottom-color:var(--teal)}
+  .page{display:none;padding:24px;max-width:960px;margin:0 auto}
+  .page.active{display:block}
+  .ch-header{display:flex;align-items:center;gap:10px;padding:10px 0 14px;border-bottom:1px solid var(--border);margin-bottom:16px}
+  .ch-title{font-size:14px;font-weight:700}
+  .ch-pill{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:20px;padding:3px 10px}
+  .pill-email{background:rgba(127,119,221,.15);color:var(--purple)}
+  .pill-dm{background:rgba(192,38,168,.15);color:var(--pink)}
+  .pill-clinic{background:rgba(29,158,117,.15);color:var(--teal)}
+  .stat-row{display:grid;gap:8px;margin-bottom:16px}
+  .cols-4{grid-template-columns:repeat(4,1fr)}
+  .cols-2{grid-template-columns:repeat(2,1fr)}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:13px 15px}
+  .stat-label{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+  .stat-value{font-size:24px;font-weight:700;line-height:1}
+  .stat-sub{font-size:10px;color:var(--muted);margin-top:4px}
+  .funnel{display:flex;flex-direction:column;gap:4px;margin-bottom:20px}
+  .f-row{display:flex;align-items:center;gap:10px}
+  .f-lbl{width:148px;font-size:11px;color:var(--muted);text-align:right;flex-shrink:0}
+  .f-track{flex:1;background:var(--surface2);border-radius:3px;height:18px;overflow:hidden}
+  .f-bar{height:100%;border-radius:3px;display:flex;align-items:center;padding:0 8px;font-size:10px;font-weight:700;color:rgba(255,255,255,.85)}
+  .f-n{width:24px;font-size:12px;font-weight:700;text-align:right;flex-shrink:0}
+  .dm-list{display:flex;flex-direction:column;gap:5px;margin-bottom:16px}
+  .dm-row{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:9px 13px}
+  .dm-name{font-weight:600;font-size:12px;min-width:148px}
+  .dm-handle{font-size:10px;color:var(--muted);min-width:160px}
+  .dm-badge{min-width:92px;flex-shrink:0}
+  .dm-note{font-size:10px;color:var(--muted);flex:1}
+  .tag{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:3px;padding:2px 7px;margin-top:0}
+  .t-pink{background:rgba(192,38,168,.15);color:var(--pink)}
+  .t-amber{background:rgba(186,117,23,.15);color:var(--amber)}
+  .t-green{background:rgba(99,153,34,.15);color:var(--green)}
+  .t-red{background:rgba(226,75,74,.15);color:var(--red)}
+  .t-grey{background:rgba(136,135,128,.15);color:var(--grey)}
+  .div{height:1px;background:var(--border);margin:22px 0}
+  .slbl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
+  .alert{background:rgba(186,117,23,.08);border:1px solid rgba(186,117,23,.2);border-radius:6px;padding:9px 14px;font-size:11px;color:var(--amber);margin-bottom:20px}
+  .footer{text-align:center;font-size:10px;color:var(--dim);padding:18px 0 2px;margin-top:20px;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div class="tabs">
+  <div class="tab active" onclick="show('influencers',this)">Influencers</div>
+  <div class="tab" onclick="show('clinics',this)">UK Clinics</div>
+</div>
+
+<div class="page active" id="influencers">
+  <div class="alert">Dashboard auto-refreshed daily at 10:00 UTC · Last update: Mon 29 Jun 2026</div>
+
+  <div class="ch-header">
+    <div class="ch-title">📧 Email Outreach</div>
+    <div class="ch-pill pill-email">45 contacted</div>
+  </div>
+
+  <div class="stat-row cols-4">
+    <div class="stat">
+      <div class="stat-label">Total in DB</div>
+      <div class="stat-value" style="color:var(--purple)">83</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Intake Filled</div>
+      <div class="stat-value" style="color:var(--amber)">2</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Product Delivered</div>
+      <div class="stat-value" style="color:var(--green)">2</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Declined</div>
+      <div class="stat-value" style="color:var(--red)">3</div>
+    </div>
+  </div>
+
+  <div class="slbl">Email Funnel</div>
+  <div class="funnel">
+    <div class="f-row">
+      <div class="f-lbl">Contacted</div>
+      <div class="f-track"><div class="f-bar" style="width:100%;background:var(--purple);min-width:32px">45</div></div>
+      <div class="f-n" style="color:var(--purple);">45</div>
+    </div>
+    <div class="f-row">
+      <div class="f-lbl">Intake Filled</div>
+      <div class="f-track"><div class="f-bar" style="width:4%;background:var(--amber);min-width:32px">2</div></div>
+      <div class="f-n" style="color:var(--amber);">2</div>
+    </div>
+    <div class="f-row">
+      <div class="f-lbl">Product Delivered</div>
+      <div class="f-track"><div class="f-bar" style="width:4%;background:var(--green);min-width:32px">2</div></div>
+      <div class="f-n" style="color:var(--green);">2</div>
+    </div>
+    <div class="f-row">
+      <div class="f-lbl">14-Day Survey</div>
+      <div class="f-track"><div class="f-bar" style="width:4%;background:var(--dark-purple);opacity:0.5;min-width:32px">0</div></div>
+      <div class="f-n" style="color:var(--dim);">0</div>
+    </div>
+    <div class="f-row">
+      <div class="f-lbl">30-Day Survey</div>
+      <div class="f-track"><div class="f-bar" style="width:4%;background:var(--dark-purple);opacity:0.3;min-width:32px">0</div></div>
+      <div class="f-n" style="color:var(--dim);">0</div>
+    </div>
+    <div class="f-row">
+      <div class="f-lbl">Declined</div>
+      <div class="f-track"><div class="f-bar" style="width:7%;background:var(--red);min-width:32px">3</div></div>
+      <div class="f-n" style="color:var(--red);">3</div>
+    </div></div>
+
+  <div class="div"></div>
+
+  <div class="ch-header">
+    <div class="ch-title">📸 Instagram DM</div>
+    <div class="ch-pill pill-dm">0 DMs · 0 responded</div>
+  </div>
+
+  <div class="stat-row cols-4">
+    <div class="stat">
+      <div class="stat-label">DMs Sent</div>
+      <div class="stat-value" style="color:var(--pink)">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Responded</div>
+      <div class="stat-value" style="color:var(--teal)">0</div>
+      <div class="stat-sub">0% response rate</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Positive / Converted</div>
+      <div class="stat-value" style="color:var(--green)">0</div>
+      <div class="stat-sub">0 converted</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">No Response</div>
+      <div class="stat-value" style="color:var(--grey)">0</div>
+    </div>
+  </div>
+
+  <div class="slbl">DM Tracker</div>
+  <div class="dm-list"></div>
+
+  <div class="footer">Last updated: Mon 29 Jun 2026 · Auto-generated from Notion · benjiaxolt.github.io/axolt-dashboard</div>
+</div>
+
+<div class="page" id="clinics">
+  <div class="ch-header">
+    <div class="ch-title">🏥 UK Clinics</div>
+    <div class="ch-pill pill-clinic">56 contacted across 2 batches</div>
+  </div>
+
+  <div class="stat-row cols-4">
+    <div class="stat">
+      <div class="stat-label">Total in DB</div>
+      <div class="stat-value" style="color:var(--teal)">56</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Outreach Sent</div>
+      <div class="stat-value" style="color:var(--teal)">56</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Meeting Booked</div>
+      <div class="stat-value" style="color:var(--amber)">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Declined</div>
+      <div class="stat-value" style="color:var(--red)">1</div>
+    </div>
+  </div>
+
+  <div class="slbl">Clinic Funnel</div>
+  <div class="funnel">
+    <div class="f-row">
+      <div class="f-lbl">Contacted</div>
+      <div class="f-track"><div class="f-bar" style="width:100%;background:var(--teal);min-width:32px">56</div></div>
+      <div class="f-n" style="color:var(--teal);">56</div>
+    </div>
+    <div class="f-row">
+      <div class="f-lbl">Replied</div>
+      <div class="f-track"><div class="f-bar" style="width:4%;background:var(--teal);opacity:0.55;min-width:32px">1</div></div>
+      <div class="f-n" style="color:var(--teal);">1</div>
+    </div>
+    <div class="f-row">
+      <div class="f-lbl">Meeting Booked</div>
+      <div class="f-track"><div class="f-bar" style="width:4%;background:var(--amber);min-width:32px">0</div></div>
+      <div class="f-n" style="color:var(--dim);">0</div>
+    </div>
+    <div class="f-row">
+      <div class="f-lbl">Partnership Agreed</div>
+      <div class="f-track"><div class="f-bar" style="width:4%;background:var(--green);opacity:0.5;min-width:32px">0</div></div>
+      <div class="f-n" style="color:var(--dim);">0</div>
+    </div>
+    <div class="f-row">
+      <div class="f-lbl">Declined</div>
+      <div class="f-track"><div class="f-bar" style="width:4%;background:var(--red);min-width:32px">1</div></div>
+      <div class="f-n" style="color:var(--red);">1</div>
+    </div></div>
+
+  <div class="stat-row cols-2">
+    <div class="stat" style="border-left:3px solid var(--teal)">
+      <div class="stat-label">Batch 1 — 21–22 Jun</div>
+      <div class="stat-value" style="color:var(--teal)">25</div>
+      <div class="stat-sub">Standard subject line</div>
+    </div>
+    <div class="stat" style="border-left:3px solid var(--dark-purple)">
+      <div class="stat-label">Batch 2 — 25 Jun · A/B Test</div>
+      <div class="stat-value" style="color:var(--dark-purple)">20</div>
+      <div class="stat-sub">Subject: "Strange ask"</div>
+    </div>
+  </div>
+
+  <div class="footer">Last updated: Mon 29 Jun 2026 · Auto-generated from Notion · benjiaxolt.github.io/axolt-dashboard</div>
+</div>
+
+<script>
+  function show(id,el){
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    el.classList.add('active');
+  }
+</script>
+</body>
+</html>
