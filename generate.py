@@ -411,5 +411,5 @@ if __name__ == "__main__":
 
     slack_url = os.environ.get("SLACK_WEBHOOK_URL", "")
     if slack_url:
-        post_slack(slack_url, "https://benjiaxolt.github.io/axolt-dashboard")
+        post_slack(slack_url, "https://benjiaxolt.github.io/Axolt-Dashboard")
         print("Slack notification sent.")
