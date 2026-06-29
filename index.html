@@ -1,237 +1,72 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang=en>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset=UTF-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
 <title>Axolt Seeding Dashboard</title>
 <style>
-  :root {
-    --purple:#7F77DD;--teal:#1D9E75;--amber:#BA7517;--green:#639922;
-    --dark-purple:#534AB7;--pink:#C026A8;--red:#E24B4A;--grey:#888780;
-    --bg:#0f0f12;--surface:#1a1a20;--surface2:#22222a;--border:#2a2a34;
-    --text:#e8e8f0;--muted:#7a7a88;--dim:#44444f;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;line-height:1.5}
-  .tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
-  .tab{padding:13px 24px;cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
-  .tab.active{color:var(--purple);border-bottom-color:var(--purple)}
-  .tab:nth-child(2).active{color:var(--teal);border-bottom-color:var(--teal)}
-  .page{display:none;padding:24px;max-width:960px;margin:0 auto}
-  .page.active{display:block}
-  .ch-header{display:flex;align-items:center;gap:10px;padding:10px 0 14px;border-bottom:1px solid var(--border);margin-bottom:16px}
-  .ch-title{font-size:14px;font-weight:700}
-  .ch-pill{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:20px;padding:3px 10px}
-  .pill-email{background:rgba(127,119,221,.15);color:var(--purple)}
-  .pill-dm{background:rgba(192,38,168,.15);color:var(--pink)}
-  .pill-clinic{background:rgba(29,158,117,.15);color:var(--teal)}
-  .stat-row{display:grid;gap:8px;margin-bottom:16px}
-  .cols-4{grid-template-columns:repeat(4,1fr)}
-  .cols-2{grid-template-columns:repeat(2,1fr)}
-  .stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:13px 15px}
-  .stat-label{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
-  .stat-value{font-size:24px;font-weight:700;line-height:1}
-  .stat-sub{font-size:10px;color:var(--muted);margin-top:4px}
-  .funnel{display:flex;flex-direction:column;gap:4px;margin-bottom:20px}
-  .f-row{display:flex;align-items:center;gap:10px}
-  .f-lbl{width:148px;font-size:11px;color:var(--muted);text-align:right;flex-shrink:0}
-  .f-track{flex:1;background:var(--surface2);border-radius:3px;height:18px;overflow:hidden}
-  .f-bar{height:100%;border-radius:3px;display:flex;align-items:center;padding:0 8px;font-size:10px;font-weight:700;color:rgba(255,255,255,.85)}
-  .f-n{width:24px;font-size:12px;font-weight:700;text-align:right;flex-shrink:0}
-  .dm-list{display:flex;flex-direction:column;gap:5px;margin-bottom:16px}
-  .dm-row{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:9px 13px}
-  .dm-name{font-weight:600;font-size:12px;min-width:148px}
-  .dm-handle{font-size:10px;color:var(--muted);min-width:160px}
-  .dm-badge{min-width:92px;flex-shrink:0}
-  .dm-note{font-size:10px;color:var(--muted);flex:1}
-  .tag{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:3px;padding:2px 7px;margin-top:0}
-  .t-pink{background:rgba(192,38,168,.15);color:var(--pink)}
-  .t-amber{background:rgba(186,117,23,.15);color:var(--amber)}
-  .t-green{background:rgba(99,153,34,.15);color:var(--green)}
-  .t-red{background:rgba(226,75,74,.15);color:var(--red)}
-  .t-grey{background:rgba(136,135,128,.15);color:var(--grey)}
-  .div{height:1px;background:var(--border);margin:22px 0}
-  .slbl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
-  .alert{background:rgba(186,117,23,.08);border:1px solid rgba(186,117,23,.2);border-radius:6px;padding:9px 14px;font-size:11px;color:var(--amber);margin-bottom:20px}
-  .footer{text-align:center;font-size:10px;color:var(--dim);padding:18px 0 2px;margin-top:20px;border-top:1px solid var(--border)}
+:root{--p:#7F77DD;--t:#1D9E75;--a:#BA7517;--g:#639922;--dp:#534AB7;--pk:#C026A8;--r:#E24B4A;--gr:#888780;--bg:#0f0f12;--s:#1a1a20;--s2:#22222a;--b:#2a2a34;--tx:#e8e8f0;--mu:#7a7a88;--d:#44444f}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;font-size:13px;line-height:1.5}
+.tabs{display:flex;background:var(--s);border-bottom:1px solid var(--b);position:sticky;top:0;z-index:100}
+.tab{padding:13px 24px;cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mu);border-bottom:2px solid transparent;margin-bottom:-1px;user-select:none}
+.tab.active{color:var(--p);border-bottom-color:var(--p)}
+.tab:nth-child(2).active{color:var(--t);border-bottom-color:var(--t)}
+.page{display:none;padding:24px;max-width:980px;margin:0 auto}
+.page.active{display:block}
+.ch-hd{display:flex;align-items:center;gap:10px;padding:10px 0 14px;border-bottom:1px solid var(--b);margin-bottom:16px}
+.ch-ti{font-size:14px;font-weight:700}
+.pill{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:20px;padding:3px 10px}
+.pe{background:rgba(127,119,221,.15);color:var(--p)}
+.pd{background:rgba(192,38,168,.15);color:var(--pk)}
+.pc{background:rgba(29,158,117,.15);color:var(--t)}
+.sg{display:grid;gap:8px;margin-bottom:16px}
+.g4{grid-template-columns:repeat(4,1fr)}
+.g2{grid-template-columns:repeat(2,1fr)}
+.card{background:var(--s);border:1px solid var(--b);border-radius:8px;padding:13px 15px}
+.cl{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);margin-bottom:5px}
+.cv{font-size:24px;font-weight:700;line-height:1}
+.cs{font-size:10px;color:var(--mu);margin-top:4px}
+.funnel{display:flex;flex-direction:column;gap:4px;margin-bottom:20px}
+.f-row{display:flex;align-items:center;gap:10px}
+.f-lbl{width:148px;font-size:11px;color:var(--mu);text-align:right;flex-shrink:0}
+.f-track{flex:1;background:var(--s2);border-radius:3px;height:18px;overflow:hidden}
+.f-bar{height:100%;border-radius:3px;display:flex;align-items:center;padding:0 8px;font-size:10px;font-weight:700;color:rgba(255,255,255,.85)}
+.f-n{width:24px;font-size:12px;font-weight:700;text-align:right;flex-shrink:0}
+.dm-list{display:flex;flex-direction:column;gap:5px;margin-bottom:16px}
+.dm-row{display:flex;align-items:center;gap:10px;background:var(--s);border:1px solid var(--b);border-radius:6px;padding:9px 13px}
+.dm-name{font-weight:600;font-size:12px;min-width:148px}
+.dm-handle{font-size:10px;color:var(--mu);min-width:150px}
+.dm-badge{min-width:110px;flex-shrink:0}
+.dm-note{font-size:10px;color:var(--mu);flex:1}
+.seed-header{display:flex;gap:10px;padding:6px 13px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--d);margin-bottom:4px}
+.seed-list{display:flex;flex-direction:column;gap:4px;margin-bottom:16px}
+.seed-row{display:flex;align-items:center;gap:10px;background:var(--s);border:1px solid var(--b);border-left:3px solid var(--g);border-radius:6px;padding:9px 13px}
+.seed-name{font-weight:600;font-size:12px;min-width:148px}
+.seed-handle{font-size:10px;color:var(--mu);min-width:130px}
+.seed-foll{font-size:11px;font-weight:600;color:var(--p);min-width:52px}
+.seed-cat{font-size:10px;color:var(--mu);flex:1}
+.seed-del{font-size:10px;color:var(--a);min-width:56px;text-align:center}
+.seed-stage{min-width:160px;text-align:right}
+.div{height:1px;background:var(--b);margin:22px 0}
+.slbl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--d);margin-bottom:10px}
+.alert{background:rgba(186,117,23,.08);border:1px solid rgba(186,117,23,.2);border-radius:6px;padding:9px 14px;font-size:11px;color:var(--a);margin-bottom:20px}
+.footer{text-align:center;font-size:10px;color:var(--d);padding:18px 0 2px;margin-top:20px;border-top:1px solid var(--b)}
+.empty{font-size:11px;color:var(--d);font-style:italic;padding:12px 14px}
 </style>
 </head>
 <body>
-<div class="tabs">
-  <div class="tab active" onclick="show('influencers',this)">Influencers</div>
-  <div class="tab" onclick="show('clinics',this)">UK Clinics</div>
+<div class=tabs>
+<div class="tab active" onclick="show('inf',this)">Influencers</div>
+<div class=tab onclick="show('cli',this)">UK Clinics</div>
 </div>
-
-<div class="page active" id="influencers">
-  <div class="alert">Dashboard auto-refreshed daily at 10:00 UTC · Last update: Mon 29 Jun 2026</div>
-
-  <div class="ch-header">
-    <div class="ch-title">📧 Email Outreach</div>
-    <div class="ch-pill pill-email">45 contacted</div>
-  </div>
-
-  <div class="stat-row cols-4">
-    <div class="stat">
-      <div class="stat-label">Total in DB</div>
-      <div class="stat-value" style="color:var(--purple)">83</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Intake Filled</div>
-      <div class="stat-value" style="color:var(--amber)">2</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Product Delivered</div>
-      <div class="stat-value" style="color:var(--green)">2</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Declined</div>
-      <div class="stat-value" style="color:var(--red)">3</div>
-    </div>
-  </div>
-
-  <div class="slbl">Email Funnel</div>
-  <div class="funnel">
-    <div class="f-row">
-      <div class="f-lbl">Contacted</div>
-      <div class="f-track"><div class="f-bar" style="width:100%;background:var(--purple);min-width:32px">45</div></div>
-      <div class="f-n" style="color:var(--purple);">45</div>
-    </div>
-    <div class="f-row">
-      <div class="f-lbl">Intake Filled</div>
-      <div class="f-track"><div class="f-bar" style="width:4%;background:var(--amber);min-width:32px">2</div></div>
-      <div class="f-n" style="color:var(--amber);">2</div>
-    </div>
-    <div class="f-row">
-      <div class="f-lbl">Product Delivered</div>
-      <div class="f-track"><div class="f-bar" style="width:4%;background:var(--green);min-width:32px">2</div></div>
-      <div class="f-n" style="color:var(--green);">2</div>
-    </div>
-    <div class="f-row">
-      <div class="f-lbl">14-Day Survey</div>
-      <div class="f-track"><div class="f-bar" style="width:4%;background:var(--dark-purple);opacity:0.5;min-width:32px">0</div></div>
-      <div class="f-n" style="color:var(--dim);">0</div>
-    </div>
-    <div class="f-row">
-      <div class="f-lbl">30-Day Survey</div>
-      <div class="f-track"><div class="f-bar" style="width:4%;background:var(--dark-purple);opacity:0.3;min-width:32px">0</div></div>
-      <div class="f-n" style="color:var(--dim);">0</div>
-    </div>
-    <div class="f-row">
-      <div class="f-lbl">Declined</div>
-      <div class="f-track"><div class="f-bar" style="width:7%;background:var(--red);min-width:32px">3</div></div>
-      <div class="f-n" style="color:var(--red);">3</div>
-    </div></div>
-
-  <div class="div"></div>
-
-  <div class="ch-header">
-    <div class="ch-title">📸 Instagram DM</div>
-    <div class="ch-pill pill-dm">0 DMs · 0 responded</div>
-  </div>
-
-  <div class="stat-row cols-4">
-    <div class="stat">
-      <div class="stat-label">DMs Sent</div>
-      <div class="stat-value" style="color:var(--pink)">0</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Responded</div>
-      <div class="stat-value" style="color:var(--teal)">0</div>
-      <div class="stat-sub">0% response rate</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Positive / Converted</div>
-      <div class="stat-value" style="color:var(--green)">0</div>
-      <div class="stat-sub">0 converted</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">No Response</div>
-      <div class="stat-value" style="color:var(--grey)">0</div>
-    </div>
-  </div>
-
-  <div class="slbl">DM Tracker</div>
-  <div class="dm-list"></div>
-
-  <div class="footer">Last updated: Mon 29 Jun 2026 · Auto-generated from Notion · benjiaxolt.github.io/axolt-dashboard</div>
-</div>
-
-<div class="page" id="clinics">
-  <div class="ch-header">
-    <div class="ch-title">🏥 UK Clinics</div>
-    <div class="ch-pill pill-clinic">56 contacted across 2 batches</div>
-  </div>
-
-  <div class="stat-row cols-4">
-    <div class="stat">
-      <div class="stat-label">Total in DB</div>
-      <div class="stat-value" style="color:var(--teal)">56</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Outreach Sent</div>
-      <div class="stat-value" style="color:var(--teal)">56</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Meeting Booked</div>
-      <div class="stat-value" style="color:var(--amber)">0</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Declined</div>
-      <div class="stat-value" style="color:var(--red)">1</div>
-    </div>
-  </div>
-
-  <div class="slbl">Clinic Funnel</div>
-  <div class="funnel">
-    <div class="f-row">
-      <div class="f-lbl">Contacted</div>
-      <div class="f-track"><div class="f-bar" style="width:100%;background:var(--teal);min-width:32px">56</div></div>
-      <div class="f-n" style="color:var(--teal);">56</div>
-    </div>
-    <div class="f-row">
-      <div class="f-lbl">Replied</div>
-      <div class="f-track"><div class="f-bar" style="width:4%;background:var(--teal);opacity:0.55;min-width:32px">1</div></div>
-      <div class="f-n" style="color:var(--teal);">1</div>
-    </div>
-    <div class="f-row">
-      <div class="f-lbl">Meeting Booked</div>
-      <div class="f-track"><div class="f-bar" style="width:4%;background:var(--amber);min-width:32px">0</div></div>
-      <div class="f-n" style="color:var(--dim);">0</div>
-    </div>
-    <div class="f-row">
-      <div class="f-lbl">Partnership Agreed</div>
-      <div class="f-track"><div class="f-bar" style="width:4%;background:var(--green);opacity:0.5;min-width:32px">0</div></div>
-      <div class="f-n" style="color:var(--dim);">0</div>
-    </div>
-    <div class="f-row">
-      <div class="f-lbl">Declined</div>
-      <div class="f-track"><div class="f-bar" style="width:4%;background:var(--red);min-width:32px">1</div></div>
-      <div class="f-n" style="color:var(--red);">1</div>
-    </div></div>
-
-  <div class="stat-row cols-2">
-    <div class="stat" style="border-left:3px solid var(--teal)">
-      <div class="stat-label">Batch 1 — 21–22 Jun</div>
-      <div class="stat-value" style="color:var(--teal)">25</div>
-      <div class="stat-sub">Standard subject line</div>
-    </div>
-    <div class="stat" style="border-left:3px solid var(--dark-purple)">
-      <div class="stat-label">Batch 2 — 25 Jun · A/B Test</div>
-      <div class="stat-value" style="color:var(--dark-purple)">20</div>
-      <div class="stat-sub">Subject: "Strange ask"</div>
-    </div>
-  </div>
-
-  <div class="footer">Last updated: Mon 29 Jun 2026 · Auto-generated from Notion · benjiaxolt.github.io/axolt-dashboard</div>
-</div>
-
+<div class='page active' id=inf><div class=alert>Auto-refreshed daily at 11:00 Prague time &middot; Last update: Mon 29 Jun 2026</div><div class=ch-hd><div class=ch-ti>&#128231; Email Outreach</div><div class='pill pe'>6 contacted &middot; 44 total</div></div><div class='sg g4'><div class=card><div class=cl>Total in DB</div><div class=cv style='color:#7F77DD'>44</div><div class=cs>6 contacted</div></div><div class=card><div class=cl>Intake Filled</div><div class=cv style='color:#BA7517'>2</div></div><div class=card><div class=cl>Product Delivered</div><div class=cv style='color:#639922'>2</div></div><div class=card><div class=cl>Declined</div><div class=cv style='color:#E24B4A'>1</div></div></div><div class=slbl>Email Funnel</div><div class=funnel><div class=f-row><div class=f-lbl>Contacted</div><div class=f-track><div class=f-bar style='width:100%;background:#7F77DD;min-width:28px'>6</div></div><div class=f-n style='color:#7F77DD'>6</div></div><div class=f-row><div class=f-lbl>Intake Filled</div><div class=f-track><div class=f-bar style='width:33%;background:#BA7517;min-width:28px'>2</div></div><div class=f-n style='color:#BA7517'>2</div></div><div class=f-row><div class=f-lbl>Product Delivered</div><div class=f-track><div class=f-bar style='width:33%;background:#639922;min-width:28px'>2</div></div><div class=f-n style='color:#639922'>2</div></div><div class=f-row><div class=f-lbl>14-Day Survey</div><div class=f-track><div class=f-bar style='width:4%;background:#534AB7;opacity:0.4;min-width:28px'>0</div></div><div class=f-n style='color:#44444f'>0</div></div><div class=f-row><div class=f-lbl>30-Day Survey</div><div class=f-track><div class=f-bar style='width:4%;background:#534AB7;opacity:0.4;min-width:28px'>0</div></div><div class=f-n style='color:#44444f'>0</div></div><div class=f-row><div class=f-lbl>Declined</div><div class=f-track><div class=f-bar style='width:17%;background:#E24B4A;min-width:28px'>1</div></div><div class=f-n style='color:#E24B4A'>1</div></div></div><div class=slbl>Seeded Influencers (2)</div><div class=seed-header><div style='min-width:148px'>Name</div><div style='min-width:130px'>Handle</div><div style='min-width:52px'>Followers</div><div style='flex:1'>Category</div><div style='min-width:56px;text-align:center'>Delivered</div><div style='min-width:160px;text-align:right'>Stage</div></div><div class=seed-list><div class=seed-row><div class=seed-name>Uta Boellinger</div><div class=seed-handle>@cannelle_nutrition</div><div class=seed-foll>5.1K</div><div class=seed-cat>Health & Fitness, Burnout, Brain Health</div><div class=seed-del>24 Jun</div><div class=seed-stage><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(99,153,34,0.15);color:#639922'>Product Delivered</span></div></div><div class=seed-row><div class=seed-name>Aimee Young</div><div class=seed-handle>@aimeeyoungcoaching</div><div class=seed-foll>16.0K</div><div class=seed-cat>Burnout, Productivity</div><div class=seed-del>16 Jun</div><div class=seed-stage><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(99,153,34,0.15);color:#639922'>Product Delivered</span></div></div></div><div class=div></div><div class=ch-hd><div class=ch-ti>&#128247; Instagram DM</div><div class='pill pd'>39 DMs &middot; 23% responded</div></div><div class='sg g4'><div class=card><div class=cl>DMs Sent</div><div class=cv style='color:#C026A8'>39</div></div><div class=card><div class=cl>Responded</div><div class=cv style='color:#1D9E75'>9</div><div class=cs>23% rate</div></div><div class=card><div class=cl>Interested</div><div class=cv style='color:#639922'>6</div><div class=cs>3 converted</div></div><div class=card><div class=cl>No Response</div><div class=cv style='color:#888780'>30</div></div></div><div class=slbl>DM Tracker</div><div class=dm-list><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Harriet King</div><div class=dm-handle>@harriet.themindfulgym</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note></div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Dr Sian Williams</div><div class=dm-handle>@drsianwilliams</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Managed by Knight Ayton talent agency. Corporate enquiry email: sueayton@knightayton.co.uk</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Mark Whittle</div><div class=dm-handle>@markwhittle_tf</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Email unverified — sourced from RocketReach (partial). Also try takeflightworld.com contac</div></div><div class=dm-row style='border-left:3px solid #639922'><div class=dm-name>Poppy Delbridge</div><div class=dm-handle>@poppydelbridge</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(99,153,34,.15);color:#639922'>Interested</span></div><div class=dm-note>DM sent 24 Jun 2026 via @axoltbrain Instagram. Responded positively via DM 24 Jun 2026 — i</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Natalie Naaman</div><div class=dm-handle>@nat_naaman</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>DM sent 24 Jun 2026 via @axoltbrain Instagram.</div></div><div class=dm-row style='border-left:3px solid #C026A8'><div class=dm-name>Carol-Ann Reid</div><div class=dm-handle>@carolannreidcoach</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(192,38,168,.15);color:#C026A8'>Converted</span></div><div class=dm-note>hello@carolannreid.com is a general business email — address outreach personally to Carol-</div></div><div class=dm-row style='border-left:3px solid #BA7517'><div class=dm-name>Dr Mike Banna</div><div class=dm-handle>@drmikethe2nd</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(186,117,23,.15);color:#BA7517'>Not Now</span></div><div class=dm-note>Contact via drmikethe2nd.com — no direct email found publicly. Content niche: Mental Healt</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Le'Nise Brothers</div><div class=dm-handle>@eatlovemove</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Content niche: Hormones, Women's Health, Energy, Mood, Stress, Nutrition. Engagement: 2.54</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Anita Bean</div><div class=dm-handle>@anitabean1</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Content niche: Sports Nutrition, Performance, Plant-Based, Health. Engagement: 2.74%. From</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Charlotte Radcliffe</div><div class=dm-handle>@the_nutrition_consultant</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Content niche: Nutrition, Sports Performance, Workplace Wellbeing, Food Industry. Engageme</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Myriam</div><div class=dm-handle>@lifestylebymyriam</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Content niche: Hormone Health, Metabolic Health, Perimenopause, Nutrition, Midlife Wellnes</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Dr Rabia</div><div class=dm-handle>@doctor_rabia</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Content niche: Gut-Brain Axis, IBS, Neurogastroenterology, Hypnotherapy, CBT, Yoga. Engage</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Rhian Stephenson</div><div class=dm-handle>@rhianstephenson</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Content niche: Nutrition, Hormones, Metabolism, Longevity, Naturopathy. Engagement: 3.21%.</div></div><div class=dm-row style='border-left:3px solid #639922'><div class=dm-name>Eleanor Hoath</div><div class=dm-handle>@eleanorhoath_</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(99,153,34,.15);color:#639922'>Interested</span></div><div class=dm-note>Content niche: Gut-Brain Axis, Fatigue, Energy, Digestive Health. DM sent 24 Jun 2026 via </div></div><div class=dm-row style='border-left:3px solid #E24B4A'><div class=dm-name>Erin Kennedy OBE</div><div class=dm-handle>@erinmwj</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(226,75,74,.15);color:#E24B4A'>Declined</span></div><div class=dm-note>DM sent 24 Jun 2026 via @axoltbrain Instagram. Declined via DM — can't take supplements as</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Sophie Corbett</div><div class=dm-handle>@cornonthecorb</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Content niche: Nutrition, Gut Health, Mental Health, Anti-Diet, Dietitian. Engagement: 2.4</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Charlotte Faure Green</div><div class=dm-handle>@charlottefauregreennutrition</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Content niche: Brain Health, Burnout, ADHD, Stress, Anxiety, Sleep, Nutrition. Engagement:</div></div><div class=dm-row style='border-left:3px solid #C026A8'><div class=dm-name>Kate Booker</div><div class=dm-handle>@kate.holistic.health</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(192,38,168,.15);color:#C026A8'>Converted</span></div><div class=dm-note>Content niche: Holistic Health, Hormones, Nervous System, Stress. Engagement: 2.21%. From </div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Toral Shah</div><div class=dm-handle>@toralshahintegrativehealth</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Content niche: Integrative Health, Longevity, Metabolic Health, Nutrition, Cancer Recovery</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Ro Huntriss</div><div class=dm-handle>@dietitianro</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Content niche: Nutrition, Dietetics, Health. Engagement: 3.63%. From HypeAuditor screensho</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Donna Bartoli</div><div class=dm-handle>@donnabartoli (TikTok) | @donna.bartoli (Instagram)</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>TikTok: 39.3K followers, 417.6K likes — strong engagement. Instagram: 129K (above cap, usi</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Clarissa Lenherr</div><div class=dm-handle>@clarissalenherrnutrition</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Content niche: Nutrition, Gut Health, Energy, Mood, Brain Health. Engagement: 2.98%. From </div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>NaturopathyCathy</div><div class=dm-handle>@naturopathycathy</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Content niche: Naturopathy, Gut Health, Energy, Inflammation, Minerals. Engagement: 2.34%.</div></div><div class=dm-row style='border-left:3px solid #C026A8'><div class=dm-name>Bee Adamic</div><div class=dm-handle>@bee_adamic</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(192,38,168,.15);color:#C026A8'>Converted</span></div><div class=dm-note>Content niche: Longevity, Biohacking, LoTox, Lifestyle. Engagement: 2.31%. From HypeAudito</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Misty Gut Health</div><div class=dm-handle>@mistys_gut_instinct</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Content niche: Gut Health, Organic, Nutrition, Holistic Wellness. Engagement: 4.58%. From </div></div><div class=dm-row style='border-left:3px solid #E24B4A'><div class=dm-name>Bex Spiller</div><div class=dm-handle>@antiburnoutclub</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(226,75,74,.15);color:#E24B4A'>Declined</span></div><div class=dm-note>Engagement Rate: 3.20% | Location: UK | Audience: UK | Content: Burnout, Stress | Platform</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Emily West</div><div class=dm-handle>@emilyyy.fit</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Engagement Rate: 11.37% | Location: UK | Audience: UK | Content: Gym+Fitness, Nutrition, H</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Su Hobson</div><div class=dm-handle>@suhobsoncoaching</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Engagement Rate: 2.15% | Location: UK | Audience: UK | Content: Health+Wellness, Longevity</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Danni Tabor</div><div class=dm-handle>@dannitabor</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Engagement Rate: 3.42% | Location: UK | Audience: UK | Content: Health+Wellness, Nutrition</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Rosie Millen</div><div class=dm-handle>@missnutritionist</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Engagement Rate: 2.30% | Location: UK | Audience: UK | Content: Burnout, Nutrition, Mental</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Megan Gilbride</div><div class=dm-handle>@megangilbride_</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Engagement Rate: 2.61% | Location: UK | Audience: UK | Content: Stress resilience, Wellnes</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Laura Fullerton</div><div class=dm-handle>@laurafullerton</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Engagement Rate: 2.18% | Location: UK | Audience: UK | Content: Biohacking, Health+Wellnes</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Sara Damergi</div><div class=dm-handle>@saradamergi</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Engagement Rate: 2.82% | Location: UK | Audience: UK | Content: Biohacking, Longevity, Hea</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Kate Rowe-Ham</div><div class=dm-handle>@katerh_fitness / @owningyourmenopause</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Engagement Rate: 3.36% | Location: UK | Audience: UK | Content: Longevity, Healthy Aging |</div></div><div class=dm-row style='border-left:3px solid #639922'><div class=dm-name>Joshua Bello</div><div class=dm-handle>@365joshua</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(99,153,34,.15);color:#639922'>Interested</span></div><div class=dm-note>Engagement Rate: 12.28% | Location: UK | Audience: UK | Content: Gym+Fitness, Nutrition, H</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Andy Ward</div><div class=dm-handle>@wrdandy_</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Engagement Rate: 6.40% | Location: UK | Audience: UK | Content: Health+Wellness, Nutrition</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Adrienne Adhami</div><div class=dm-handle>@adrienne_ldn</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Engagement Rate: 2.80% | Location: UK | Audience: UK | Content: Performance, Wellness, Pro</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Ruth John</div><div class=dm-handle>@reset_with_ruth</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Engagement Rate: 4.50% | Location: UK | Audience: UK | Content: Burnout, Stress, Wellness</div></div><div class=dm-row style='border-left:3px solid #2a2a34'><div class=dm-name>Bodyguarding Wellness</div><div class=dm-handle>@bodyguardingg / @mrbodyguardding</div><div class=dm-badge><span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(136,135,128,.15);color:#888780'>No Response</span></div><div class=dm-note>Engagement Rate: 7.61% | Location: UK | Audience: UK | Content: Gym+Fitness, Nutrition, He</div></div></div><div class=footer>Last updated: Mon 29 Jun 2026 &middot; https://benjiaxolt.github.io/Axolt-Dashboard</div></div><div class=page id=cli><div class=ch-hd><div class=ch-ti>&#127973; UK Clinics</div><div class='pill pc'>56 contacted &middot; 2 batches</div></div><div class='sg g4'><div class=card><div class=cl>Total in DB</div><div class=cv style='color:#1D9E75'>56</div></div><div class=card><div class=cl>Outreach Sent</div><div class=cv style='color:#1D9E75'>56</div></div><div class=card><div class=cl>Meeting Booked</div><div class=cv style='color:#BA7517'>0</div></div><div class=card><div class=cl>Declined</div><div class=cv style='color:#E24B4A'>1</div></div></div><div class=slbl>Clinic Funnel</div><div class=funnel><div class=f-row><div class=f-lbl>Contacted</div><div class=f-track><div class=f-bar style='width:100%;background:#1D9E75;min-width:28px'>56</div></div><div class=f-n style='color:#1D9E75'>56</div></div><div class=f-row><div class=f-lbl>Replied</div><div class=f-track><div class=f-bar style='width:4%;background:#1D9E75;min-width:28px'>1</div></div><div class=f-n style='color:#1D9E75'>1</div></div><div class=f-row><div class=f-lbl>Meeting Booked</div><div class=f-track><div class=f-bar style='width:4%;background:#BA7517;opacity:0.4;min-width:28px'>0</div></div><div class=f-n style='color:#44444f'>0</div></div><div class=f-row><div class=f-lbl>Partnership</div><div class=f-track><div class=f-bar style='width:4%;background:#639922;opacity:0.4;min-width:28px'>0</div></div><div class=f-n style='color:#44444f'>0</div></div><div class=f-row><div class=f-lbl>Declined</div><div class=f-track><div class=f-bar style='width:4%;background:#E24B4A;min-width:28px'>1</div></div><div class=f-n style='color:#E24B4A'>1</div></div></div><div class='sg g2'><div class=card style='border-left:3px solid #1D9E75'><div class=cl>Batch 1 - 21-22 Jun</div><div class=cv style='color:#1D9E75'>25</div><div class=cs>Standard subject line</div></div><div class=card style='border-left:3px solid #534AB7'><div class=cl>Batch 2 - 25 Jun - A/B Test</div><div class=cv style='color:#534AB7'>20</div><div class=cs>Subject: Strange ask</div></div></div><div class=footer>Last updated: Mon 29 Jun 2026 &middot; https://benjiaxolt.github.io/Axolt-Dashboard</div></div>
 <script>
-  function show(id,el){
-    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-    el.classList.add('active');
-  }
+function show(id,el){
+document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active')});
+document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});
+document.getElementById(id).classList.add('active');
+el.classList.add('active');
+}
 </script>
-</body>
-</html>
+</body></html>
