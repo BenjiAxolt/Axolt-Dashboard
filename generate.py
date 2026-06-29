@@ -77,80 +77,58 @@ def fmt_followers(n):
     return str(int(n))
 
 
-def make_bar(label, count, total, color, dim=False):
+def make_bar(label, count, total, color, faded=False):
     pct = max(4, round(count / max(total, 1) * 100))
-    opacity = "opacity:0.4;" if (dim and count == 0) else ""
-    txt_color = color if count else "#44444f"
+    opacity = "opacity:0.35;" if faded and count == 0 else ""
+    txt = color if count else "#44444f"
     return (
         "<div class=f-row>"
         "<div class=f-lbl>" + label + "</div>"
         "<div class=f-track>"
-        "<div class=f-bar style='width:" + str(pct) + "%;background:" + color + ";" + opacity + "min-width:28px'>" + str(count) + "</div>"
+        "<div class=f-bar style='width:" + str(pct) + "%;background:" + color + ";" + opacity + "min-width:30px'>" + str(count) + "</div>"
         "</div>"
-        "<div class=f-n style='color:" + txt_color + "'>" + str(count) + "</div>"
+        "<div class=f-n style='color:" + txt + "'>" + str(count) + "</div>"
         "</div>"
     )
-
-
-def make_dm_badge(p):
-    decision = get_prop(p, "DM Decision") or ""
-    stage = get_prop(p, "Stage") or ""
-    active = ["Intake Survey Filled", "Product Delivered", "14-Day Survey Sent",
-              "14-Day Survey Filled", "30-Day Survey Sent", "30-Day Survey Filled"]
-    if stage in active:
-        return ("Converted", "#C026A8", "rgba(192,38,168,.15)", "#C026A8")
-    if decision == "Interested":
-        return ("Interested", "#639922", "rgba(99,153,34,.15)", "#639922")
-    if decision == "Not Now":
-        return ("Not Now", "#BA7517", "rgba(186,117,23,.15)", "#BA7517")
-    if decision == "Declined":
-        return ("Declined", "#E24B4A", "rgba(226,75,74,.15)", "#E24B4A")
-    return ("No Response", "#888780", "rgba(136,135,128,.15)", "#2a2a34")
 
 
 def build_dashboard(inf_pages, clinic_pages):
     today = datetime.now(timezone.utc).strftime("%a %-d %b %Y")
 
+    # Filter duplicates
     inf_pages = [p for p in inf_pages if get_prop(p, "Stage") != "Duplicate"]
     clinic_pages = [p for p in clinic_pages if get_prop(p, "Stage") != "Duplicate"]
 
-    dm_pages = [p for p in inf_pages if get_prop(p, "DM Outreach") is True]
-    email_pages = [p for p in inf_pages if not (get_prop(p, "DM Outreach") is True)]
-
-    delivered = ["Product Delivered", "14-Day Survey Sent", "14-Day Survey Filled",
+    # Stage buckets
+    CONTACTED = ["Contacted", "Replied", "Intake Survey Filled", "Product Delivered",
+                 "14-Day Survey Sent", "14-Day Survey Filled",
+                 "30-Day Survey Sent", "30-Day Survey Filled", "Unresponsive", "Declined", "Not Now"]
+    INTAKE    = ["Intake Survey Filled", "Product Delivered",
+                 "14-Day Survey Sent", "14-Day Survey Filled",
                  "30-Day Survey Sent", "30-Day Survey Filled"]
-    intake_plus = ["Intake Survey Filled"] + delivered
+    DELIVERED = ["Product Delivered", "14-Day Survey Sent", "14-Day Survey Filled",
+                 "30-Day Survey Sent", "30-Day Survey Filled"]
+    S14       = ["14-Day Survey Sent", "14-Day Survey Filled"]
+    S30       = ["30-Day Survey Sent", "30-Day Survey Filled"]
 
-    ec = sum(1 for p in email_pages if get_prop(p, "Stage") not in [None, "Lead"])
-    ei = sum(1 for p in email_pages if get_prop(p, "Stage") in intake_plus)
-    ed = sum(1 for p in email_pages if get_prop(p, "Stage") in delivered)
-    e14 = sum(1 for p in email_pages if get_prop(p, "Stage") in ["14-Day Survey Sent", "14-Day Survey Filled"])
-    e30 = sum(1 for p in email_pages if get_prop(p, "Stage") in ["30-Day Survey Sent", "30-Day Survey Filled"])
-    edecl = sum(1 for p in email_pages if get_prop(p, "Stage") == "Declined")
+    total_inf    = len(inf_pages)
+    contacted    = sum(1 for p in inf_pages if get_prop(p, "Stage") in CONTACTED)
+    intake       = sum(1 for p in inf_pages if get_prop(p, "Stage") in INTAKE)
+    delivered    = sum(1 for p in inf_pages if get_prop(p, "Stage") in DELIVERED)
+    survey_14    = sum(1 for p in inf_pages if get_prop(p, "Stage") in S14)
+    survey_30    = sum(1 for p in inf_pages if get_prop(p, "Stage") in S30)
+    declined_inf = sum(1 for p in inf_pages if get_prop(p, "Stage") == "Declined")
 
-    ds = len(dm_pages)
-    dr = sum(1 for p in dm_pages if get_prop(p, "DM Response") is True)
-    di = sum(1 for p in dm_pages if get_prop(p, "DM Decision") == "Interested")
-    dc = sum(1 for p in dm_pages if get_prop(p, "Stage") in intake_plus)
-    dnr = sum(1 for p in dm_pages if get_prop(p, "DM Decision") in ["No Response", None])
-    rr = round(dr / max(ds, 1) * 100)
-
-    tc = len(clinic_pages)
-    cm = sum(1 for p in clinic_pages if get_prop(p, "Stage") in ["Meeting Booked", "Meeting Held", "Replied"])
-    cdecl = sum(1 for p in clinic_pages if get_prop(p, "Stage") == "Declined")
-    creplied = sum(1 for p in clinic_pages if get_prop(p, "Stage") not in [None, "Lead", "Contacted"])
-
-    seeded = [p for p in inf_pages if get_prop(p, "Stage") in delivered]
-
-    # Build seeded rows
-    seed_html = ""
+    # Seeded list
+    seeded = [p for p in inf_pages if get_prop(p, "Stage") in DELIVERED]
+    seed_rows = ""
     for p in seeded:
-        name = get_prop(p, "Name") or "Unknown"
-        handle = get_prop(p, "Handle") or ""
-        stage = get_prop(p, "Stage") or ""
-        del_date = fmt_date(get_prop(p, "Product Delivered"))
-        foll = fmt_followers(get_prop(p, "Followers"))
-        cat = ", ".join(get_prop(p, "Category") or [])
+        name    = get_prop(p, "Name") or "Unknown"
+        handle  = get_prop(p, "Handle") or ""
+        stage   = get_prop(p, "Stage") or ""
+        del_dt  = fmt_date(get_prop(p, "Product Delivered"))
+        foll    = fmt_followers(get_prop(p, "Followers"))
+        cat     = ", ".join(get_prop(p, "Category") or [])
         if "30-Day" in stage:
             sc, sb = "#534AB7", "rgba(83,74,183,0.15)"
         elif "14-Day" in stage:
@@ -158,172 +136,136 @@ def build_dashboard(inf_pages, clinic_pages):
         else:
             sc, sb = "#639922", "rgba(99,153,34,0.15)"
         badge = "<span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:" + sb + ";color:" + sc + "'>" + stage + "</span>"
-        seed_html += (
+        seed_rows += (
             "<div class=seed-row>"
-            "<div class=seed-name>" + name + "</div>"
-            "<div class=seed-handle>" + handle + "</div>"
-            "<div class=seed-foll>" + foll + "</div>"
-            "<div class=seed-cat>" + cat + "</div>"
-            "<div class=seed-del>" + del_date + "</div>"
-            "<div class=seed-stage>" + badge + "</div>"
+            "<div class=sn>" + name + "</div>"
+            "<div class=sh>" + handle + "</div>"
+            "<div class=sf>" + foll + "</div>"
+            "<div class=sc>" + cat + "</div>"
+            "<div class=sd>" + del_dt + "</div>"
+            "<div class=ss>" + badge + "</div>"
             "</div>"
         )
 
-    if seed_html:
+    if seed_rows:
         seeded_block = (
-            "<div class=seed-header>"
-            "<div style='min-width:148px'>Name</div>"
-            "<div style='min-width:130px'>Handle</div>"
-            "<div style='min-width:52px'>Followers</div>"
+            "<div class=seed-hd>"
+            "<div style='min-width:140px'>Name</div>"
+            "<div style='min-width:140px'>Handle</div>"
+            "<div style='min-width:50px'>Followers</div>"
             "<div style='flex:1'>Category</div>"
-            "<div style='min-width:56px;text-align:center'>Delivered</div>"
-            "<div style='min-width:160px;text-align:right'>Stage</div>"
+            "<div style='min-width:54px;text-align:center'>Delivered</div>"
+            "<div style='min-width:150px;text-align:right'>Stage</div>"
             "</div>"
-            "<div class=seed-list>" + seed_html + "</div>"
+            "<div class=seed-list>" + seed_rows + "</div>"
         )
     else:
         seeded_block = "<div class=empty>No influencers seeded yet.</div>"
 
-    # Build DM rows
-    dm_html = ""
-    for p in dm_pages:
-        name = get_prop(p, "Name") or "Unknown"
-        handle = get_prop(p, "Handle") or ""
-        note = (get_prop(p, "Note") or "")[:90]
-        label, color, bg, border = make_dm_badge(p)
-        badge = "<span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:" + bg + ";color:" + color + "'>" + label + "</span>"
-        dm_html += (
-            "<div class=dm-row style='border-left:3px solid " + border + "'>"
-            "<div class=dm-name>" + name + "</div>"
-            "<div class=dm-handle>" + handle + "</div>"
-            "<div class=dm-badge>" + badge + "</div>"
-            "<div class=dm-note>" + note + "</div>"
-            "</div>"
-        )
-    if not dm_html:
-        dm_html = "<div class=empty>No DMs recorded yet.</div>"
-
-    # Funnels
-    ef = (
-        make_bar("Contacted", ec, ec, "#7F77DD") +
-        make_bar("Intake Filled", ei, ec, "#BA7517") +
-        make_bar("Product Delivered", ed, ec, "#639922") +
-        make_bar("14-Day Survey", e14, ec, "#534AB7", dim=True) +
-        make_bar("30-Day Survey", e30, ec, "#534AB7", dim=True) +
-        make_bar("Declined", edecl, ec, "#E24B4A")
-    )
-    cf = (
-        make_bar("Contacted", tc, tc, "#1D9E75") +
-        make_bar("Replied", creplied, tc, "#1D9E75") +
-        make_bar("Meeting Booked", cm, tc, "#BA7517", dim=True) +
-        make_bar("Partnership", 0, tc, "#639922", dim=True) +
-        make_bar("Declined", cdecl, tc, "#E24B4A")
+    # Influencer funnel
+    inf_funnel = (
+        make_bar("Total in DB",       total_inf, total_inf, "#534AB7") +
+        make_bar("Contacted",         contacted, total_inf, "#7F77DD") +
+        make_bar("Intake Filled",     intake,    total_inf, "#BA7517") +
+        make_bar("Product Delivered", delivered, total_inf, "#639922") +
+        make_bar("14-Day Survey",     survey_14, total_inf, "#534AB7", faded=True) +
+        make_bar("30-Day Survey",     survey_30, total_inf, "#534AB7", faded=True) +
+        make_bar("Declined",          declined_inf, total_inf, "#E24B4A")
     )
 
-    et = len(email_pages)
+    # Clinic stats
+    total_cli   = len(clinic_pages)
+    cli_replied = sum(1 for p in clinic_pages if get_prop(p, "Stage") not in [None, "Lead", "Contacted"])
+    cli_meeting = sum(1 for p in clinic_pages if get_prop(p, "Stage") in ["Meeting Booked", "Meeting Held"])
+    cli_partner = sum(1 for p in clinic_pages if get_prop(p, "Stage") in ["Partnership Agreed", "Active"])
+    cli_declined= sum(1 for p in clinic_pages if get_prop(p, "Stage") == "Declined")
 
+    cli_funnel = (
+        make_bar("Contacted",          total_cli,   total_cli, "#1D9E75") +
+        make_bar("Replied",            cli_replied, total_cli, "#1D9E75") +
+        make_bar("Meeting Booked",     cli_meeting, total_cli, "#BA7517", faded=True) +
+        make_bar("Partnership Agreed", cli_partner, total_cli, "#639922", faded=True) +
+        make_bar("Declined",           cli_declined,total_cli, "#E24B4A")
+    )
+
+    # Build HTML
     html = """<!DOCTYPE html>
 <html lang=en>
 <head>
 <meta charset=UTF-8>
-<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=viewport content='width=device-width,initial-scale=1'>
 <title>Axolt Seeding Dashboard</title>
 <style>
-:root{--p:#7F77DD;--t:#1D9E75;--a:#BA7517;--g:#639922;--dp:#534AB7;--pk:#C026A8;--r:#E24B4A;--gr:#888780;--bg:#0f0f12;--s:#1a1a20;--s2:#22222a;--b:#2a2a34;--tx:#e8e8f0;--mu:#7a7a88;--d:#44444f}
+:root{--p:#7F77DD;--t:#1D9E75;--a:#BA7517;--g:#639922;--dp:#534AB7;--r:#E24B4A;--bg:#0f0f12;--s:#1a1a20;--s2:#22222a;--b:#2a2a34;--tx:#e8e8f0;--mu:#7a7a88;--d:#44444f}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;font-size:13px;line-height:1.5}
 .tabs{display:flex;background:var(--s);border-bottom:1px solid var(--b);position:sticky;top:0;z-index:100}
 .tab{padding:13px 24px;cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mu);border-bottom:2px solid transparent;margin-bottom:-1px;user-select:none}
 .tab.active{color:var(--p);border-bottom-color:var(--p)}
 .tab:nth-child(2).active{color:var(--t);border-bottom-color:var(--t)}
-.page{display:none;padding:24px;max-width:980px;margin:0 auto}
+.page{display:none;padding:24px;max-width:960px;margin:0 auto}
 .page.active{display:block}
-.ch-hd{display:flex;align-items:center;gap:10px;padding:10px 0 14px;border-bottom:1px solid var(--b);margin-bottom:16px}
-.ch-ti{font-size:14px;font-weight:700}
-.pill{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:20px;padding:3px 10px}
-.pe{background:rgba(127,119,221,.15);color:var(--p)}
-.pd{background:rgba(192,38,168,.15);color:var(--pk)}
-.pc{background:rgba(29,158,117,.15);color:var(--t)}
-.sg{display:grid;gap:8px;margin-bottom:16px}
+.sg{display:grid;gap:8px;margin-bottom:20px}
+.g5{grid-template-columns:repeat(5,1fr)}
 .g4{grid-template-columns:repeat(4,1fr)}
-.g2{grid-template-columns:repeat(2,1fr)}
 .card{background:var(--s);border:1px solid var(--b);border-radius:8px;padding:13px 15px}
 .cl{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);margin-bottom:5px}
 .cv{font-size:24px;font-weight:700;line-height:1}
 .cs{font-size:10px;color:var(--mu);margin-top:4px}
-.funnel{display:flex;flex-direction:column;gap:4px;margin-bottom:20px}
-.f-row{display:flex;align-items:center;gap:10px}
-.f-lbl{width:148px;font-size:11px;color:var(--mu);text-align:right;flex-shrink:0}
-.f-track{flex:1;background:var(--s2);border-radius:3px;height:18px;overflow:hidden}
-.f-bar{height:100%;border-radius:3px;display:flex;align-items:center;padding:0 8px;font-size:10px;font-weight:700;color:rgba(255,255,255,.85)}
-.f-n{width:24px;font-size:12px;font-weight:700;text-align:right;flex-shrink:0}
-.dm-list{display:flex;flex-direction:column;gap:5px;margin-bottom:16px}
-.dm-row{display:flex;align-items:center;gap:10px;background:var(--s);border:1px solid var(--b);border-radius:6px;padding:9px 13px}
-.dm-name{font-weight:600;font-size:12px;min-width:148px}
-.dm-handle{font-size:10px;color:var(--mu);min-width:150px}
-.dm-badge{min-width:110px;flex-shrink:0}
-.dm-note{font-size:10px;color:var(--mu);flex:1}
-.seed-header{display:flex;gap:10px;padding:6px 13px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--d);margin-bottom:4px}
-.seed-list{display:flex;flex-direction:column;gap:4px;margin-bottom:16px}
-.seed-row{display:flex;align-items:center;gap:10px;background:var(--s);border:1px solid var(--b);border-left:3px solid var(--g);border-radius:6px;padding:9px 13px}
-.seed-name{font-weight:600;font-size:12px;min-width:148px}
-.seed-handle{font-size:10px;color:var(--mu);min-width:130px}
-.seed-foll{font-size:11px;font-weight:600;color:var(--p);min-width:52px}
-.seed-cat{font-size:10px;color:var(--mu);flex:1}
-.seed-del{font-size:10px;color:var(--a);min-width:56px;text-align:center}
-.seed-stage{min-width:160px;text-align:right}
-.div{height:1px;background:var(--b);margin:22px 0}
 .slbl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--d);margin-bottom:10px}
-.alert{background:rgba(186,117,23,.08);border:1px solid rgba(186,117,23,.2);border-radius:6px;padding:9px 14px;font-size:11px;color:var(--a);margin-bottom:20px}
-.footer{text-align:center;font-size:10px;color:var(--d);padding:18px 0 2px;margin-top:20px;border-top:1px solid var(--b)}
-.empty{font-size:11px;color:var(--d);font-style:italic;padding:12px 14px}
+.funnel{display:flex;flex-direction:column;gap:5px;margin-bottom:24px}
+.f-row{display:flex;align-items:center;gap:10px}
+.f-lbl{width:160px;font-size:11px;color:var(--mu);text-align:right;flex-shrink:0}
+.f-track{flex:1;background:var(--s2);border-radius:3px;height:20px;overflow:hidden}
+.f-bar{height:100%;border-radius:3px;display:flex;align-items:center;padding:0 10px;font-size:10px;font-weight:700;color:rgba(255,255,255,.9)}
+.f-n{width:24px;font-size:12px;font-weight:700;text-align:right;flex-shrink:0}
+.seed-hd{display:flex;gap:10px;padding:5px 13px;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--d);margin-bottom:4px}
+.seed-list{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.seed-row{display:flex;align-items:center;gap:10px;background:var(--s);border:1px solid var(--b);border-left:3px solid var(--g);border-radius:6px;padding:10px 13px}
+.sn{font-weight:600;font-size:12px;min-width:140px}
+.sh{font-size:10px;color:var(--mu);min-width:140px}
+.sf{font-size:11px;font-weight:600;color:var(--p);min-width:50px}
+.sc{font-size:10px;color:var(--mu);flex:1}
+.sd{font-size:10px;color:var(--a);min-width:54px;text-align:center}
+.ss{min-width:150px;text-align:right}
+.empty{font-size:11px;color:var(--d);font-style:italic;padding:10px 0}
+.footer{text-align:center;font-size:10px;color:var(--d);padding:20px 0 2px;margin-top:20px;border-top:1px solid var(--b)}
 </style>
 </head>
 <body>
 <div class=tabs>
-<div class="tab active" onclick="show('inf',this)">Influencers</div>
-<div class=tab onclick="show('cli',this)">UK Clinics</div>
+<div class='tab active' onclick='show("inf",this)'>Influencers</div>
+<div class=tab onclick='show("cli",this)'>UK Clinics</div>
 </div>
 """
 
+    # Influencers page
     html += "<div class='page active' id=inf>"
-    html += "<div class=alert>Auto-refreshed daily at 11:00 Prague time &middot; Last update: " + today + "</div>"
-    html += "<div class=ch-hd><div class=ch-ti>&#128231; Email Outreach</div><div class='pill pe'>" + str(ec) + " contacted &middot; " + str(et) + " total</div></div>"
-    html += "<div class='sg g4'>"
-    html += "<div class=card><div class=cl>Total in DB</div><div class=cv style='color:#7F77DD'>" + str(et) + "</div><div class=cs>" + str(ec) + " contacted</div></div>"
-    html += "<div class=card><div class=cl>Intake Filled</div><div class=cv style='color:#BA7517'>" + str(ei) + "</div></div>"
-    html += "<div class=card><div class=cl>Product Delivered</div><div class=cv style='color:#639922'>" + str(ed) + "</div></div>"
-    html += "<div class=card><div class=cl>Declined</div><div class=cv style='color:#E24B4A'>" + str(edecl) + "</div></div>"
+    html += "<div class='sg g5' style='margin-top:18px'>"
+    html += "<div class=card><div class=cl>Total in DB</div><div class=cv style='color:#534AB7'>" + str(total_inf) + "</div></div>"
+    html += "<div class=card><div class=cl>Contacted</div><div class=cv style='color:#7F77DD'>" + str(contacted) + "</div></div>"
+    html += "<div class=card><div class=cl>Intake Filled</div><div class=cv style='color:#BA7517'>" + str(intake) + "</div></div>"
+    html += "<div class=card><div class=cl>Product Delivered</div><div class=cv style='color:#639922'>" + str(delivered) + "</div></div>"
+    html += "<div class=card><div class=cl>Declined</div><div class=cv style='color:#E24B4A'>" + str(declined_inf) + "</div></div>"
     html += "</div>"
-    html += "<div class=slbl>Email Funnel</div><div class=funnel>" + ef + "</div>"
-    html += "<div class=slbl>Seeded Influencers (" + str(len(seeded)) + ")</div>"
+    html += "<div class=slbl>Pipeline Funnel</div>"
+    html += "<div class=funnel>" + inf_funnel + "</div>"
+    html += "<div class=slbl>Seeded (" + str(len(seeded)) + ")</div>"
     html += seeded_block
-    html += "<div class=div></div>"
-    html += "<div class=ch-hd><div class=ch-ti>&#128247; Instagram DM</div><div class='pill pd'>" + str(ds) + " DMs &middot; " + str(rr) + "% responded</div></div>"
-    html += "<div class='sg g4'>"
-    html += "<div class=card><div class=cl>DMs Sent</div><div class=cv style='color:#C026A8'>" + str(ds) + "</div></div>"
-    html += "<div class=card><div class=cl>Responded</div><div class=cv style='color:#1D9E75'>" + str(dr) + "</div><div class=cs>" + str(rr) + "% rate</div></div>"
-    html += "<div class=card><div class=cl>Interested</div><div class=cv style='color:#639922'>" + str(di) + "</div><div class=cs>" + str(dc) + " converted</div></div>"
-    html += "<div class=card><div class=cl>No Response</div><div class=cv style='color:#888780'>" + str(dnr) + "</div></div>"
-    html += "</div>"
-    html += "<div class=slbl>DM Tracker</div><div class=dm-list>" + dm_html + "</div>"
-    html += "<div class=footer>Last updated: " + today + " &middot; " + DASHBOARD_URL + "</div>"
+    html += "<div class=footer>Auto-refreshed daily 11:00 Prague &middot; " + DASHBOARD_URL + "</div>"
     html += "</div>"
 
+    # Clinics page
     html += "<div class=page id=cli>"
-    html += "<div class=ch-hd><div class=ch-ti>&#127973; UK Clinics</div><div class='pill pc'>" + str(tc) + " contacted &middot; 2 batches</div></div>"
-    html += "<div class='sg g4'>"
-    html += "<div class=card><div class=cl>Total in DB</div><div class=cv style='color:#1D9E75'>" + str(tc) + "</div></div>"
-    html += "<div class=card><div class=cl>Outreach Sent</div><div class=cv style='color:#1D9E75'>" + str(tc) + "</div></div>"
-    html += "<div class=card><div class=cl>Meeting Booked</div><div class=cv style='color:#BA7517'>" + str(cm) + "</div></div>"
-    html += "<div class=card><div class=cl>Declined</div><div class=cv style='color:#E24B4A'>" + str(cdecl) + "</div></div>"
+    html += "<div class='sg g4' style='margin-top:18px'>"
+    html += "<div class=card><div class=cl>Total in DB</div><div class=cv style='color:#1D9E75'>" + str(total_cli) + "</div></div>"
+    html += "<div class=card><div class=cl>Outreach Sent</div><div class=cv style='color:#1D9E75'>" + str(total_cli) + "</div></div>"
+    html += "<div class=card><div class=cl>Meeting Booked</div><div class=cv style='color:#BA7517'>" + str(cli_meeting) + "</div></div>"
+    html += "<div class=card><div class=cl>Declined</div><div class=cv style='color:#E24B4A'>" + str(cli_declined) + "</div></div>"
     html += "</div>"
-    html += "<div class=slbl>Clinic Funnel</div><div class=funnel>" + cf + "</div>"
-    html += "<div class='sg g2'>"
-    html += "<div class=card style='border-left:3px solid #1D9E75'><div class=cl>Batch 1 - 21-22 Jun</div><div class=cv style='color:#1D9E75'>25</div><div class=cs>Standard subject line</div></div>"
-    html += "<div class=card style='border-left:3px solid #534AB7'><div class=cl>Batch 2 - 25 Jun - A/B Test</div><div class=cv style='color:#534AB7'>20</div><div class=cs>Subject: Strange ask</div></div>"
-    html += "</div>"
-    html += "<div class=footer>Last updated: " + today + " &middot; " + DASHBOARD_URL + "</div>"
+    html += "<div class=slbl>Pipeline Funnel</div>"
+    html += "<div class=funnel>" + cli_funnel + "</div>"
+    html += "<div class=footer>Auto-refreshed daily 11:00 Prague &middot; " + DASHBOARD_URL + "</div>"
     html += "</div>"
 
     html += """
