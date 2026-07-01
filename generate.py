@@ -142,33 +142,29 @@ def build_dashboard(inf_pages, clinic_pages):
 
     # Seeded list
     seeded = [p for p in inf_pages if get_prop(p, "Stage") in DELIVERED]
-    seed_rows = ""
+    seed_js_data = []
     for p in seeded:
-        name    = get_prop(p, "Name") or "Unknown"
-        handle  = get_prop(p, "Handle") or ""
-        stage   = get_prop(p, "Stage") or ""
-        del_dt  = fmt_date(get_prop(p, "Product Delivered"))
-        foll    = fmt_followers(get_prop(p, "Followers"))
-        cat     = ", ".join(get_prop(p, "Category") or [])
+        name   = (get_prop(p, "Name") or "Unknown").replace("'", "\\'")
+        handle = (get_prop(p, "Handle") or "").replace("'", "\\'")
+        stage  = get_prop(p, "Stage") or ""
+        del_dt = fmt_date(get_prop(p, "Product Delivered"))
+        foll   = fmt_followers(get_prop(p, "Followers"))
+        cat    = ", ".join(get_prop(p, "Category") or []).replace("'", "\\'")
+        sid    = (get_prop(p, "Name") or "unknown").lower().replace(" ", "_").replace("'", "")
         if "30-Day" in stage:
             sc, sb = "#534AB7", "rgba(83,74,183,0.15)"
         elif "14-Day" in stage:
             sc, sb = "#7F77DD", "rgba(127,119,221,0.15)"
         else:
             sc, sb = "#639922", "rgba(99,153,34,0.15)"
-        badge = "<span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:" + sb + ";color:" + sc + "'>" + stage + "</span>"
-        seed_rows += (
-            "<div class=seed-row>"
-            "<div class=sn>" + name + "</div>"
-            "<div class=sh>" + handle + "</div>"
-            "<div class=sf>" + foll + "</div>"
-            "<div class=sc>" + cat + "</div>"
-            "<div class=sd>" + del_dt + "</div>"
-            "<div class=ss>" + badge + "</div>"
-            "</div>"
+        seed_js_data.append(
+            "{id:'" + sid + "',name:'" + name + "',handle:'" + handle +
+            "',followers:'" + foll + "',category:'" + cat +
+            "',delivered:'" + del_dt + "',stage:'" + stage +
+            "',sc:'" + sc + "',sb:'" + sb + "'}"
         )
 
-    if seed_rows:
+    if seeded:
         seeded_block = (
             "<div class=seed-hd>"
             "<div style='min-width:140px'>Name</div>"
@@ -178,10 +174,12 @@ def build_dashboard(inf_pages, clinic_pages):
             "<div style='min-width:54px;text-align:center'>Delivered</div>"
             "<div style='min-width:150px;text-align:right'>Stage</div>"
             "</div>"
-            "<div class=seed-list>" + seed_rows + "</div>"
+            "<div class=seed-list id=seedList></div>"
         )
     else:
         seeded_block = "<div class=empty>No influencers seeded yet.</div>"
+
+    seed_js = "[" + ",".join(seed_js_data) + "]"
 
     # Influencer funnel
     inf_funnel = (
@@ -253,14 +251,38 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
 .f-drop{display:flex;align-items:center;gap:10px;height:16px}
 .f-drop-inner{display:flex;align-items:center;gap:4px;font-size:9px;font-weight:600;margin-left:170px}
 .seed-hd{display:flex;gap:10px;padding:5px 13px;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--d);margin-bottom:4px}
-.seed-list{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
-.seed-row{display:flex;align-items:center;gap:10px;background:var(--s);border:1px solid var(--b);border-left:3px solid var(--g);border-radius:6px;padding:10px 13px}
+.seed-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.seed-row{display:flex;flex-direction:column;background:var(--s);border:1px solid var(--b);border-left:3px solid var(--g);border-radius:6px;overflow:hidden}
+.seed-main{display:flex;align-items:center;gap:10px;padding:10px 13px}
 .sn{font-weight:600;font-size:12px;min-width:140px}
 .sh{font-size:10px;color:var(--mu);min-width:140px}
 .sf{font-size:11px;font-weight:600;color:var(--p);min-width:50px}
 .sc{font-size:10px;color:var(--mu);flex:1}
 .sd{font-size:10px;color:var(--a);min-width:54px;text-align:center}
 .ss{min-width:150px;text-align:right}
+.content-section{border-top:1px solid var(--b)}
+.link-item{display:flex;align-items:center;gap:8px;padding:6px 13px;background:rgba(99,153,34,0.07)}
+.link-item+.link-item{border-top:1px solid rgba(99,153,34,0.1)}
+.cdot{width:6px;height:6px;border-radius:50%;background:#639922;flex-shrink:0}
+.clbl{font-size:12px;font-weight:600;color:#639922}
+.clink{font-size:12px;color:var(--mu);margin-left:4px;text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.clink:hover{color:var(--p)}
+.del-btn{font-size:12px;color:var(--d);cursor:pointer;background:none;border:none;padding:2px 4px;line-height:1}
+.del-btn:hover{color:#E24B4A}
+.no-content{display:flex;align-items:center;gap:8px;padding:7px 13px}
+.ncdot{width:6px;height:6px;border-radius:50%;background:var(--d);flex-shrink:0}
+.nclbl{font-size:12px;color:var(--d)}
+.add-row{display:flex;align-items:center;padding:6px 13px;background:rgba(255,255,255,0.02);border-top:1px solid var(--b)}
+.add-btn{font-size:12px;font-weight:600;color:var(--mu);cursor:pointer;background:none;border:none;padding:0}
+.add-btn:hover{color:var(--p)}
+.input-row{display:none;align-items:center;gap:8px;padding:6px 13px;background:rgba(127,119,221,0.05);border-top:1px solid rgba(127,119,221,0.2)}
+.url-input{flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(127,119,221,0.3);border-radius:4px;padding:4px 9px;font-size:12px;color:var(--tx);outline:none}
+.url-input:focus{border-color:var(--p)}
+.url-input::placeholder{color:var(--d)}
+.save-btn{font-size:12px;font-weight:700;color:#fff;background:var(--p);border:none;border-radius:4px;padding:4px 11px;cursor:pointer}
+.save-btn:hover{background:#534AB7}
+.cancel-btn{font-size:12px;color:var(--d);background:none;border:none;cursor:pointer;padding:4px}
+.cancel-btn:hover{color:var(--tx)}
 .empty{font-size:11px;color:var(--d);font-style:italic;padding:10px 0}
 .footer{text-align:center;font-size:10px;color:var(--d);padding:20px 0 2px;margin-top:20px;border-top:1px solid var(--b)}
 </style>
@@ -301,16 +323,48 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
     html += "<div class=footer>Auto-refreshed daily 11:00 Prague &middot; " + DASHBOARD_URL + "</div>"
     html += "</div>"
 
-    html += """
-<script>
-function show(id,el){
-document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active')});
-document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});
-document.getElementById(id).classList.add('active');
-el.classList.add('active');
-}
-</script>
-</body></html>"""
+    html += (
+        "<script>"
+        "var INF=" + seed_js + ";"
+        "function getLinks(id){try{return JSON.parse(localStorage.getItem('links_'+id))||[];}catch(e){return[];}}"
+        "function saveLinks(id,links){localStorage.setItem('links_'+id,JSON.stringify(links));}"
+        "function shortUrl(url){try{var u=new URL(url);return u.hostname.replace('www.','')+u.pathname.substring(0,28)+(u.pathname.length>28?'...':'');}catch(e){return url.substring(0,38)+(url.length>38?'...':'');}}"
+        "function renderAll(){"
+        "var list=document.getElementById('seedList');if(!list)return;"
+        "list.innerHTML='';"
+        "INF.forEach(function(inf){"
+        "var links=getLinks(inf.id);"
+        "var row=document.createElement('div');row.className='seed-row';"
+        "var badge=\"<span style='font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:\"+inf.sb+\";color:\"+inf.sc+\"'>\"+inf.stage+\"</span>\";"
+        "row.innerHTML=\"<div class=seed-main><div class=sn>\"+inf.name+\"</div><div class=sh>\"+inf.handle+\"</div><div class=sf>\"+inf.followers+\"</div><div class=sc>\"+inf.category+\"</div><div class=sd>\"+inf.delivered+\"</div><div class=ss>\"+badge+\"</div></div>\";"
+        "var cs=document.createElement('div');cs.className='content-section';"
+        "if(links.length>0){links.forEach(function(url,i){"
+        "var li=document.createElement('div');li.className='link-item';"
+        "li.innerHTML=\"<div class=cdot></div><span class=clbl>Content posted</span><a class=clink href='\"+url+\"' target=_blank>\"+shortUrl(url)+\" &rarr;</a><button class=del-btn onclick=\\\"removeLink('\"+inf.id+\"',\"+i+\")\\\">&#x2715;</button>\";"
+        "cs.appendChild(li);"
+        "});}else{"
+        "var nc=document.createElement('div');nc.className='no-content';"
+        "nc.innerHTML='<div class=ncdot></div><div class=nclbl>No content posted yet</div>';"
+        "cs.appendChild(nc);}"
+        "var ar=document.createElement('div');ar.className='add-row';ar.id='add_'+inf.id;"
+        "ar.innerHTML=\"<button class=add-btn onclick=\\\"showInput('\"+inf.id+\"')\\\">&#xFF0B; Add content link</button>\";"
+        "cs.appendChild(ar);"
+        "var ir=document.createElement('div');ir.className='input-row';ir.id='input_'+inf.id;"
+        "ir.innerHTML=\"<input class=url-input id='url_\"+inf.id+\"' placeholder='Paste Instagram / TikTok URL...' /><button class=save-btn onclick=\\\"addLink('\"+inf.id+\"')\\\">Save</button><button class=cancel-btn onclick=\\\"hideInput('\"+inf.id+\"')\\\">&#x2715;</button>\";"
+        "cs.appendChild(ir);"
+        "row.appendChild(cs);list.appendChild(row);"
+        "var inp=document.getElementById('url_'+inf.id);"
+        "if(inp)inp.addEventListener('keydown',function(e){if(e.key==='Enter')addLink(inf.id);});"
+        "});}"
+        "function showInput(id){document.getElementById('add_'+id).style.display='none';var ir=document.getElementById('input_'+id);ir.style.display='flex';document.getElementById('url_'+id).focus();}"
+        "function hideInput(id){document.getElementById('input_'+id).style.display='none';document.getElementById('add_'+id).style.display='flex';document.getElementById('url_'+id).value='';}"
+        "function addLink(id){var inp=document.getElementById('url_'+id);var url=inp.value.trim();if(!url)return;var links=getLinks(id);links.push(url);saveLinks(id,links);renderAll();}"
+        "function removeLink(id,i){var links=getLinks(id);links.splice(i,1);saveLinks(id,links);renderAll();}"
+        "function show(id,el){document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active')});document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});document.getElementById(id).classList.add('active');el.classList.add('active');}"
+        "renderAll();"
+        "</script>"
+        "</body></html>"
+    )
 
     return html
 
