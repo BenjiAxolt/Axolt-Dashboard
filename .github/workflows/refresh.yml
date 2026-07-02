@@ -2,8 +2,8 @@ name: Refresh Dashboard
 
 on:
   schedule:
-    - cron: '0 9 * * *'    # 09:00 UTC daily
-  workflow_dispatch:         # allows manual trigger from GitHub UI
+    - cron: '0 9 * * *'   # 09:00 UTC daily
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -25,6 +25,7 @@ jobs:
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          GH_PAT: ${{ secrets.GH_PAT }}
         run: python generate.py
 
       - name: Commit & push updated dashboard
