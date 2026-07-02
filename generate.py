@@ -1,8 +1,11 @@
+$ cat /private/tmp/claude-501/-Users-benji-Axolt/e3cef2c9-0ad2-46a6-b68f-8b41ec38b305/scratchpad/generate_v4.py
+
 import os
 import requests
 from datetime import datetime, timezone
 
 NOTION_TOKEN = os.environ["NOTION_TOKEN"]
+GH_PAT = os.environ.get("GH_PAT", "")
 INFLUENCER_DB = "f07a187424e64bc7b1b992ceced311c5"
 CLINIC_DB = "cb01c955a4664a1eb0d66c1f835f1243"
 DASHBOARD_URL = "https://benjiaxolt.github.io/Axolt-Dashboard"
@@ -285,6 +288,13 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
 .cancel-btn:hover{color:var(--tx)}
 .empty{font-size:11px;color:var(--d);font-style:italic;padding:10px 0}
 .footer{text-align:center;font-size:10px;color:var(--d);padding:20px 0 2px;margin-top:20px;border-top:1px solid var(--b)}
+.refresh-wrap{position:fixed;bottom:20px;right:20px;z-index:200}
+.refresh-btn{background:#1a1a20;border:1px solid #2a2a34;color:#7a7a88;font-size:11px;font-weight:700;padding:8px 16px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.refresh-btn:hover{border-color:var(--p);color:var(--p)}
+.refresh-btn.loading{color:var(--p);border-color:var(--p);cursor:default}
+.refresh-btn.done{color:#639922;border-color:#639922;cursor:default}
+.spin{display:inline-block;animation:spin 1s linear infinite}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -311,6 +321,7 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
     html += "</div>"
 
     # Clinics page
+
     html += "<div class=page id=cli>"
     html += "<div class='sg g4' style='margin-top:18px'>"
     html += "<div class=card><div class=cl>Total in DB</div><div class=cv style='color:#1D9E75'>" + str(total_cli) + "</div></div>"
@@ -322,6 +333,8 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
     html += "<div class=funnel>" + cli_funnel + "</div>"
     html += "<div class=footer>Auto-refreshed daily 11:00 Prague &middot; " + DASHBOARD_URL + "</div>"
     html += "</div>"
+
+    html += "<div class=refresh-wrap><button class=refresh-btn id=refreshBtn onclick=triggerRefresh()>&#8635; Refresh Dashboard</button></div>"
 
     html += (
         "<script>"
@@ -361,6 +374,23 @@ body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSyst
         "function addLink(id){var inp=document.getElementById('url_'+id);var url=inp.value.trim();if(!url)return;var links=getLinks(id);links.push(url);saveLinks(id,links);renderAll();}"
         "function removeLink(id,i){var links=getLinks(id);links.splice(i,1);saveLinks(id,links);renderAll();}"
         "function show(id,el){document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active')});document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});document.getElementById(id).classList.add('active');el.classList.add('active');}"
+        "function triggerRefresh(){"
+        "var btn=document.getElementById('refreshBtn');"
+        "if(btn.classList.contains('loading')||btn.classList.contains('done'))return;"
+        "btn.classList.add('loading');"
+        "btn.innerHTML='<span class=spin>&#8635;</span> Refreshing...';"
+        "fetch('https://api.github.com/repos/BenjiAxolt/Axolt-Dashboard/actions/workflows/refresh.yml/dispatches',{"
+        "method:'POST',"
+        "headers:{'Authorization':'Bearer '+atob('" + __import__('base64').b64encode(GH_PAT.encode()).decode() + "'),'Accept':'application/vnd.github+json','Content-Type':'application/json'},"
+        "body:JSON.stringify({ref:'main'})"
+        "}).then(function(){"
+        "var secs=40;var iv=setInterval(function(){"
+        "secs--;btn.innerHTML='<span class=spin>&#8635;</span> Updating in '+secs+'s...';"
+        "if(secs<=0){clearInterval(iv);location.reload();}"
+        "},1000);"
+        "}).catch(function(){"
+        "btn.classList.remove('loading');btn.innerHTML='&#8635; Refresh Dashboard';"
+        "});}"
         "renderAll();"
         "</script>"
         "</body></html>"
