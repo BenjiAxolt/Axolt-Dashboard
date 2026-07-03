@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Axolt Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f0f13; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; min-height: 100vh; }
+
+  /* NAV */
+  nav { display: flex; align-items: center; gap: 4px; padding: 14px 20px; border-bottom: 1px solid #1e1e28; background: #13131a; position: sticky; top: 0; z-index: 100; }
+  .nav-logo { font-weight: 700; font-size: 15px; color: #fff; margin-right: 16px; letter-spacing: -0.3px; }
+  .nav-btn { padding: 6px 14px; border-radius: 6px; border: none; background: transparent; color: #888; cursor: pointer; font-size: 12px; font-family: inherit; transition: background 0.15s, color 0.15s; }
+  .nav-btn:hover { background: #1e1e28; color: #ccc; }
+  .nav-btn.active { background: #534AB7; color: #fff; }
+  .nav-spacer { flex: 1; }
+  .nav-updated { font-size: 11px; color: #555; }
+  .nav-refresh { padding: 6px 12px; border-radius: 6px; border: 1px solid #2a2a38; background: transparent; color: #888; cursor: pointer; font-size: 11px; font-family: inherit; transition: all 0.15s; }
+  .nav-refresh:hover { border-color: #534AB7; color: #7F77DD; }
+  .nav-refresh.spinning { color: #534AB7; }
+
+  /* SECTIONS */
+  .section { display: none; padding: 24px 20px; }
+  .section.active { display: block; }
+
+  /* CARDS */
+  .stat-grid { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+  .stat-card { background: #16161f; border: 1px solid #1e1e28; border-radius: 10px; padding: 14px 18px; min-width: 110px; }
+  .stat-card .num { font-size: 26px; font-weight: 700; color: #fff; line-height: 1; }
+  .stat-card .lbl { font-size: 11px; color: #666; margin-top: 4px; }
+
+  /* TWO-COL */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* PANELS */
+  .panel { background: #16161f; border: 1px solid #1e1e28; border-radius: 10px; padding: 18px; }
+  .panel-title { font-size: 12px; font-weight: 600; color: #888; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 14px; }
+
+  /* FUNNEL BARS */
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .bar-label { width: 130px; font-size: 12px; color: #aaa; flex-shrink: 0; text-align: right; }
+  .bar-track { flex: 1; height: 22px; background: #1e1e28; border-radius: 4px; overflow: hidden; position: relative; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+  .bar-count { font-size: 12px; color: #ccc; width: 32px; flex-shrink: 0; }
+
+  /* CONVERSION ARROW */
+  .conv-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .conv-spacer { width: 130px; flex-shrink: 0; }
+  .conv-body { flex: 1; display: flex; align-items: center; gap: 8px; padding-left: 4px; }
+  .conv-arrow { color: #444; font-size: 14px; line-height: 1; }
+  .conv-text { font-size: 11px; color: #555; }
+  .conv-pct { font-size: 11px; font-weight: 600; }
+
+  /* SEEDED LIST */
+  .seeded-list { display: flex; flex-direction: column; gap: 0; }
+  .seeded-row { border-bottom: 1px solid #1a1a24; padding: 10px 0; }
+  .seeded-row:last-child { border-bottom: none; }
+  .seeded-top { display: flex; align-items: center; gap: 10px; }
+  .seeded-name { font-size: 12px; font-weight: 600; color: #e0e0e0; flex: 1; }
+  .seeded-handle { font-size: 12px; color: #555; }
+  .seeded-followers { font-size: 12px; color: #777; }
+  .stage-pill { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+  .seeded-meta { font-size: 11px; color: #555; margin-top: 3px; }
+
+  /* CONTENT LINKS */
+  .content-section { margin-top: 8px; }
+  .content-strip { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; background: rgba(99,153,34,0.1); border: 1px solid rgba(99,153,34,0.2); margin-bottom: 4px; }
+  .content-strip a { font-size: 11px; color: #7ec339; text-decoration: none; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .content-strip a:hover { text-decoration: underline; }
+  .content-strip .del-btn { font-size: 11px; color: #555; background: none; border: none; cursor: pointer; padding: 0 2px; }
+  .content-strip .del-btn:hover { color: #E24B4A; }
+  .no-content { font-size: 11px; color: #444; padding: 5px 0; }
+  .add-content-btn { font-size: 11px; color: #534AB7; background: none; border: none; cursor: pointer; padding: 4px 0; margin-top: 2px; }
+  .add-content-btn:hover { color: #7F77DD; }
+  .add-content-row { display: flex; gap: 6px; margin-top: 6px; }
+  .add-content-row input { flex: 1; background: #1e1e28; border: 1px solid #2a2a38; border-radius: 5px; color: #ddd; font-size: 11px; padding: 5px 8px; font-family: inherit; }
+  .add-content-row input:focus { outline: none; border-color: #534AB7; }
+  .add-content-row button { font-size: 11px; padding: 5px 10px; border-radius: 5px; border: none; cursor: pointer; font-family: inherit; }
+  .save-btn { background: #534AB7; color: #fff; }
+  .save-btn:hover { background: #6257cc; }
+  .cancel-btn { background: #1e1e28; color: #888; }
+  .cancel-btn:hover { color: #ccc; }
+
+  /* CLINICS */
+  .clinic-stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+
+  /* COMING SOON */
+  .coming-soon { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; color: #333; gap: 8px; }
+  .coming-soon .icon { font-size: 36px; }
+  .coming-soon .msg { font-size: 14px; }
+
+  /* LOADING */
+  #loading { display: flex; align-items: center; justify-content: center; min-height: 60vh; color: #444; gap: 10px; }
+  .spinner { width: 20px; height: 20px; border: 2px solid #1e1e28; border-top-color: #534AB7; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="nav-logo">Axolt</span>
+  <button class="nav-btn active" onclick="showTab('influencers', this)">Influencers</button>
+  <button class="nav-btn" onclick="showTab('clinics', this)">UK Clinics</button>
+  <button class="nav-btn" onclick="showTab('scraper', this)">Scraper</button>
+  <button class="nav-btn" onclick="showTab('vetting', this)">Vetting</button>
+  <button class="nav-btn" onclick="showTab('templates', this)">Templates</button>
+  <button class="nav-btn" onclick="showTab('outreach', this)">Outreach</button>
+  <button class="nav-btn" onclick="showTab('analytics', this)">SV Analytics</button>
+  <span class="nav-spacer"></span>
+  <span class="nav-updated" id="nav-updated"></span>
+  <button class="nav-refresh" id="refresh-btn" onclick="refreshData()">&#8635; Refresh</button>
+</nav>
+
+<div id="loading"><div class="spinner"></div> Loading...</div>
+
+<!-- INFLUENCERS -->
+<div class="section" id="tab-influencers">
+  <div class="stat-grid" id="inf-stats"></div>
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-title">Pipeline Funnel</div>
+      <div id="inf-funnel"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Seeded Influencers</div>
+      <div class="seeded-list" id="seeded-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CLINICS -->
+<div class="section" id="tab-clinics">
+  <div class="stat-grid" id="cli-stats"></div>
+  <div class="panel" style="max-width:480px">
+    <div class="panel-title">Pipeline Funnel</div>
+    <div id="cli-funnel"></div>
+  </div>
+</div>
+
+<!-- STUBS -->
+<div class="section" id="tab-scraper">
+  <div class="coming-soon"><div class="icon">🔍</div><div class="msg">Scraper — coming soon</div></div>
+</div>
+<div class="section" id="tab-vetting">
+  <div class="coming-soon"><div class="icon">✅</div><div class="msg">Vetting — coming soon</div></div>
+</div>
+<div class="section" id="tab-templates">
+  <div class="coming-soon"><div class="icon">📝</div><div class="msg">Templates — coming soon</div></div>
+</div>
+<div class="section" id="tab-outreach">
+  <div class="coming-soon"><div class="icon">✉️</div><div class="msg">Outreach — coming soon</div></div>
+</div>
+<div class="section" id="tab-analytics">
+  <div class="coming-soon"><div class="icon">📊</div><div class="msg">SV Analytics — coming soon</div></div>
+</div>
+
+<script>
+var DATA = null;
+
+function showTab(name, btn) {
+  document.querySelectorAll('.section').forEach(function(s){ s.classList.remove('active'); });
+  document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('tab-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+function pct(a, b) {
+  if (!b) return '0%';
+  return Math.round(a / b * 100) + '%';
+}
+
+function makeBar(label, count, total, color, faded) {
+  var w = total ? Math.round(count / total * 100) : 0;
+  var alpha = faded ? '0.45' : '1';
+  return '<div class="bar-row">' +
+    '<div class="bar-label">' + label + '</div>' +
+    '<div class="bar-track"><div class="bar-fill" style="width:' + w + '%;background:' + color + ';opacity:' + alpha + '"></div></div>' +
+    '<div class="bar-count">' + count + '</div>' +
+  '</div>';
+}
+
+function dropRow(pctStr, label, color) {
+  return '<div class="conv-row">' +
+    '<div class="conv-spacer"></div>' +
+    '<div class="conv-body">' +
+      '<span class="conv-arrow">↓</span>' +
+      '<span class="conv-pct" style="color:' + color + '">' + pctStr + '</span>' +
+      '<span class="conv-text">' + label + '</span>' +
+    '</div>' +
+  '</div>';
+}
+
+function statCard(num, lbl) {
+  return '<div class="stat-card"><div class="num">' + num + '</div><div class="lbl">' + lbl + '</div></div>';
+}
+
+function getLinks(id) {
+  try { return JSON.parse(localStorage.getItem('links_' + id) || '[]'); } catch(e) { return []; }
+}
+function saveLinks(id, links) {
+  localStorage.setItem('links_' + id, JSON.stringify(links));
+}
+
+function renderSeeded(seeded) {
+  var el = document.getElementById('seeded-list');
+  if (!seeded.length) { el.innerHTML = '<div style="color:#444;font-size:12px">No seeded influencers yet</div>'; return; }
+  el.innerHTML = seeded.map(function(s) {
+    return '<div class="seeded-row" id="row_' + s.id + '">' +
+      '<div class="seeded-top">' +
+        '<div class="seeded-name">' + s.name + '</div>' +
+        (s.handle ? '<div class="seeded-handle">' + s.handle + '</div>' : '') +
+        (s.followers ? '<div class="seeded-followers">' + s.followers + '</div>' : '') +
+        '<span class="stage-pill" style="color:' + s.sc + ';background:' + s.sb + '">' + s.stage + '</span>' +
+      '</div>' +
+      (s.category || s.delivered ? '<div class="seeded-meta">' + [s.category, s.delivered ? 'Delivered ' + s.delivered : ''].filter(Boolean).join(' · ') + '</div>' : '') +
+      '<div class="content-section" id="cs_' + s.id + '"></div>' +
+    '</div>';
+  }).join('');
+  seeded.forEach(function(s) { renderLinks(s.id); });
+}
+
+function renderLinks(id) {
+  var links = getLinks(id);
+  var cs = document.getElementById('cs_' + id);
+  if (!cs) return;
+  var html = '';
+  links.forEach(function(url, i) {
+    html += '<div class="content-strip">' +
+      '<a href="' + url + '" target="_blank" rel="noopener">' + url + '</a>' +
+      '<button class="del-btn" onclick="delLink(\'' + id + '\',' + i + ')">✕</button>' +
+    '</div>';
+  });
+  if (!links.length) html += '<div class="no-content">No content posted yet</div>';
+  html += '<button class="add-content-btn" onclick="showAddLink(\'' + id + '\')">＋ Add content link</button>';
+  html += '<div class="add-content-row" id="add_' + id + '" style="display:none">' +
+    '<input type="url" placeholder="https://..." id="inp_' + id + '" onkeydown="if(event.key===\'Enter\')saveLink(\'' + id + '\')">' +
+    '<button class="save-btn" onclick="saveLink(\'' + id + '\')">Save</button>' +
+    '<button class="cancel-btn" onclick="hideAddLink(\'' + id + '\')">Cancel</button>' +
+  '</div>';
+  cs.innerHTML = html;
+}
+
+function showAddLink(id) {
+  document.getElementById('add_' + id).style.display = 'flex';
+  var inp = document.getElementById('inp_' + id);
+  if (inp) inp.focus();
+}
+function hideAddLink(id) {
+  document.getElementById('add_' + id).style.display = 'none';
+}
+function saveLink(id) {
+  var inp = document.getElementById('inp_' + id);
+  var url = inp ? inp.value.trim() : '';
+  if (!url) return;
+  var links = getLinks(id);
+  links.push(url);
+  saveLinks(id, links);
+  renderLinks(id);
+}
+function delLink(id, idx) {
+  var links = getLinks(id);
+  links.splice(idx, 1);
+  saveLinks(id, links);
+  renderLinks(id);
+}
+
+function renderDashboard(d) {
+  var inf = d.influencers;
+  var cli = d.clinics;
+
+  document.getElementById('nav-updated').textContent = 'Updated ' + d.updated;
+
+  // Influencer stats
+  document.getElementById('inf-stats').innerHTML =
+    statCard(inf.total, 'Total') +
+    statCard(inf.contacted, 'Contacted') +
+    statCard(inf.intake, 'Intake Filled') +
+    statCard(inf.delivered, 'Product Delivered') +
+    statCard(inf.declined, 'Declined');
+
+  // Influencer funnel
+  var f = '';
+  f += makeBar('Total in DB',       inf.total,     inf.total, '#534AB7');
+  f += dropRow(pct(inf.contacted,   inf.total),    'contacted',              '#7F77DD');
+  f += makeBar('Contacted',         inf.contacted, inf.total, '#7F77DD');
+  f += dropRow(pct(inf.intake,      inf.contacted),'filled intake',           '#BA7517');
+  f += makeBar('Intake Filled',     inf.intake,    inf.total, '#BA7517');
+  f += dropRow(pct(inf.delivered,   inf.intake),   'delivered',              '#639922');
+  f += makeBar('Product Delivered', inf.delivered, inf.total, '#639922');
+  f += '<div style="height:6px"></div>';
+  f += makeBar('14-Day Survey',     inf.survey_14, inf.total, '#534AB7', true);
+  f += makeBar('30-Day Survey',     inf.survey_30, inf.total, '#534AB7', true);
+  f += '<div style="height:6px"></div>';
+  f += dropRow(pct(inf.declined,    inf.contacted),'of contacted declined',   '#E24B4A');
+  f += makeBar('Declined',          inf.declined,  inf.total, '#E24B4A');
+  document.getElementById('inf-funnel').innerHTML = f;
+
+  // Seeded list
+  renderSeeded(inf.seeded);
+
+  // Clinic stats
+  document.getElementById('cli-stats').innerHTML =
+    statCard(cli.total,   'Total') +
+    statCard(cli.replied, 'Replied') +
+    statCard(cli.meeting, 'Meeting') +
+    statCard(cli.partner, 'Partner') +
+    statCard(cli.declined,'Declined');
+
+  // Clinic funnel
+  var cf = '';
+  cf += makeBar('Total',            cli.total,    cli.total, '#534AB7');
+  cf += dropRow(pct(cli.replied,    cli.total),   'replied',  '#7F77DD');
+  cf += makeBar('Replied',          cli.replied,  cli.total, '#7F77DD');
+  cf += dropRow(pct(cli.meeting,    cli.replied), 'meeting booked', '#BA7517');
+  cf += makeBar('Meeting',          cli.meeting,  cli.total, '#BA7517');
+  cf += dropRow(pct(cli.partner,    cli.meeting), 'became partner', '#639922');
+  cf += makeBar('Partner',          cli.partner,  cli.total, '#639922');
+  cf += '<div style="height:6px"></div>';
+  cf += dropRow(pct(cli.declined,   cli.total),   'declined', '#E24B4A');
+  cf += makeBar('Declined',         cli.declined, cli.total, '#E24B4A');
+  document.getElementById('cli-funnel').innerHTML = cf;
+}
+
+function refreshData() {
+  var btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  btn.textContent = '↻ Refreshing…';
+  fetch('/api/dashboard')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      DATA = d;
+      renderDashboard(d);
+      btn.classList.remove('spinning');
+      btn.textContent = '↻ Refresh';
+    })
+    .catch(function(){
+      btn.classList.remove('spinning');
+      btn.textContent = '↻ Refresh';
+    });
+}
+
+// Initial load
+fetch('/api/dashboard')
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    DATA = d;
+    document.getElementById('loading').style.display = 'none';
+    showTab('influencers', document.querySelector('.nav-btn.active'));
+    document.getElementById('tab-influencers').classList.add('active');
+    renderDashboard(d);
+  })
+  .catch(function(e){
+    document.getElementById('loading').innerHTML = '<span style="color:#E24B4A">Failed to load data. Check NOTION_TOKEN.</span>';
+  });
+</script>
+</body>
+</html>
