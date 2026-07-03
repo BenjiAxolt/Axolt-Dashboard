@@ -1,13 +1,26 @@
 import os
 import requests
 from datetime import datetime, timezone
-from flask import Flask, render_template, jsonify, request
+from functools import wraps
+from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-prod")
 
 NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "")
 INFLUENCER_DB = "f07a187424e64bc7b1b992ceced311c5"
 CLINIC_DB = "cb01c955a4664a1eb0d66c1f835f1243"
+DASHBOARD_USER = os.environ.get("DASHBOARD_USER", "BenjiAxolt")
+DASHBOARD_PASS = os.environ.get("DASHBOARD_PASS", "")
+
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("logged_in"):
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated
 
 NOTION_HEADERS = {
     "Authorization": "Bearer " + NOTION_TOKEN,
@@ -79,12 +92,32 @@ def fmt_followers(n):
     return str(int(n))
 
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = None
+    if request.method == "POST":
+        if (request.form.get("username") == DASHBOARD_USER and
+                request.form.get("password") == DASHBOARD_PASS):
+            session["logged_in"] = True
+            return redirect(url_for("index"))
+        error = "Invalid username or password."
+    return render_template("login.html", error=error)
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
 @app.route("/")
+@login_required
 def index():
     return render_template("index.html")
 
 
 @app.route("/api/dashboard")
+@login_required
 def dashboard_data():
     inf_pages = query_db(INFLUENCER_DB)
     clinic_pages = query_db(CLINIC_DB)
@@ -162,6 +195,7 @@ def dashboard_data():
 
 
 @app.route("/api/scrape/start", methods=["POST"])
+@login_required
 def scrape_start():
     from scraper import job, start_scrape_thread
     if job["running"]:
@@ -177,6 +211,7 @@ def scrape_start():
 
 
 @app.route("/api/scrape/status")
+@login_required
 def scrape_status():
     from scraper import job
     return jsonify(job)
