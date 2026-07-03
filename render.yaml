@@ -4,6 +4,7 @@ services:
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
+    rootDir: dashboard
     envVars:
       - key: NOTION_TOKEN
         sync: false
