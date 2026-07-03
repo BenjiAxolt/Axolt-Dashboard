@@ -141,7 +141,46 @@
 
 <!-- STUBS -->
 <div class="section" id="tab-scraper">
-  <div class="coming-soon"><div class="icon">🔍</div><div class="msg">Scraper — coming soon</div></div>
+  <div class="two-col" style="max-width:1000px">
+    <div class="panel">
+      <div class="panel-title">Meta Creator Marketplace Scraper</div>
+
+      <div style="margin-bottom:14px">
+        <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">SEARCH KEYWORDS (one per line)</label>
+        <textarea id="scrape-keywords" rows="6" placeholder="health coach&#10;nutritionist&#10;wellness&#10;biohacker&#10;longevity" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
+      </div>
+
+      <div style="margin-bottom:14px">
+        <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">DAILY LIMIT <span id="limit-val" style="color:#7F77DD">15</span> <span style="color:#444">(max 25)</span></label>
+        <input type="range" id="scrape-limit" min="1" max="25" value="15" oninput="document.getElementById('limit-val').textContent=this.value" style="width:100%;accent-color:#534AB7">
+      </div>
+
+      <div style="margin-bottom:16px">
+        <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">SESSION COOKIES (JSON) <span style="color:#444">— paste from cookie export</span></label>
+        <textarea id="scrape-cookies" rows="3" placeholder='[{"name":"c_user","value":"...","domain":".facebook.com",...}]' style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:11px;padding:8px 10px;font-family:monospace;resize:vertical"></textarea>
+        <div style="font-size:10px;color:#444;margin-top:4px">Use the EditThisCookie browser extension → Export → paste here</div>
+      </div>
+
+      <button id="scrape-btn" onclick="startScrape()" style="background:#534AB7;color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:12px;font-family:inherit;cursor:pointer;width:100%">Start Scrape</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Run Log</div>
+      <div style="display:flex;gap:16px;margin-bottom:12px">
+        <div style="text-align:center">
+          <div id="sc-added" style="font-size:22px;font-weight:700;color:#639922">0</div>
+          <div style="font-size:11px;color:#555">Added</div>
+        </div>
+        <div style="text-align:center">
+          <div id="sc-skipped" style="font-size:22px;font-weight:700;color:#666">0</div>
+          <div style="font-size:11px;color:#555">Skipped</div>
+        </div>
+        <div style="flex:1"></div>
+        <div id="sc-status" style="font-size:11px;color:#555;align-self:center"></div>
+      </div>
+      <div id="scrape-log" style="background:#0f0f13;border-radius:6px;padding:10px;height:320px;overflow-y:auto;font-size:11px;color:#666;font-family:monospace;line-height:1.6">Waiting to start...</div>
+    </div>
+  </div>
 </div>
 <div class="section" id="tab-vetting">
   <div class="coming-soon"><div class="icon">✅</div><div class="msg">Vetting — coming soon</div></div>
@@ -339,6 +378,43 @@ function refreshData() {
       btn.classList.remove('spinning');
       btn.textContent = '↻ Refresh';
     });
+}
+
+// Scraper
+var scrapePoller = null;
+function startScrape() {
+  var keywords = document.getElementById('scrape-keywords').value.trim();
+  var limit = document.getElementById('scrape-limit').value;
+  var cookies = document.getElementById('scrape-cookies').value.trim();
+  if (!keywords) { alert('Enter at least one keyword.'); return; }
+  var btn = document.getElementById('scrape-btn');
+  btn.textContent = 'Running...';
+  btn.disabled = true;
+  document.getElementById('scrape-log').textContent = '';
+  fetch('/api/scrape/start', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({keywords: keywords, limit: parseInt(limit), cookies: cookies})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { alert(d.error); btn.textContent = 'Start Scrape'; btn.disabled = false; return; }
+    scrapePoller = setInterval(pollScrape, 2000);
+  });
+}
+function pollScrape() {
+  fetch('/api/scrape/status').then(function(r){ return r.json(); }).then(function(d){
+    document.getElementById('sc-added').textContent = d.added;
+    document.getElementById('sc-skipped').textContent = d.skipped;
+    document.getElementById('sc-status').textContent = d.running ? 'Running...' : 'Idle';
+    var logEl = document.getElementById('scrape-log');
+    logEl.textContent = (d.log || []).join('\n');
+    logEl.scrollTop = logEl.scrollHeight;
+    if (!d.running) {
+      clearInterval(scrapePoller);
+      var btn = document.getElementById('scrape-btn');
+      btn.textContent = 'Start Scrape';
+      btn.disabled = false;
+    }
+  });
 }
 
 // Initial load

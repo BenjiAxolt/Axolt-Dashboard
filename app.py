@@ -161,5 +161,26 @@ def dashboard_data():
     })
 
 
+@app.route("/api/scrape/start", methods=["POST"])
+def scrape_start():
+    from scraper import job, start_scrape_thread
+    if job["running"]:
+        return jsonify({"error": "Already running"}), 400
+    data = request.json or {}
+    keywords = [k.strip() for k in data.get("keywords", "").split("\n") if k.strip()]
+    limit = min(int(data.get("limit", 15)), 25)
+    cookies_json = data.get("cookies", "")
+    if not keywords:
+        return jsonify({"error": "No keywords provided"}), 400
+    start_scrape_thread(keywords, limit, cookies_json)
+    return jsonify({"status": "started"})
+
+
+@app.route("/api/scrape/status")
+def scrape_status():
+    from scraper import job
+    return jsonify(job)
+
+
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
