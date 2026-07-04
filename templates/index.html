@@ -467,7 +467,11 @@ function generateFlagPassword(flagId, username) {
     }
     var row = resultEl ? resultEl.closest('div[style*="border-bottom"]') : null;
     if (row) {
-      var buttons = row.querySelectorAll('button');
+      // Disable the Generate/Resolve buttons so this flag can't be actioned
+      // again, but leave the Copy button (inside resultEl) clickable.
+      var buttons = Array.from(row.querySelectorAll('button')).filter(function(b){
+        return !resultEl.contains(b);
+      });
       buttons.forEach(function(b){ b.disabled = true; b.style.opacity = '0.5'; });
     }
   });
