@@ -30,6 +30,25 @@ MARKETPLACE_PREFIX = "https://business.facebook.com/latest/creator_marketplace"
 OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "debug_output")
 
 
+SAME_SITE_MAP = {
+    "no_restriction": "None",
+    "unspecified": "Lax",
+    "lax": "Lax",
+    "strict": "Strict",
+    "none": "None",
+}
+
+
+def normalize_cookies(cookies):
+    cleaned = []
+    for c in cookies:
+        c = dict(c)
+        same_site = str(c.get("sameSite", "")).lower()
+        c["sameSite"] = SAME_SITE_MAP.get(same_site, "Lax")
+        cleaned.append(c)
+    return cleaned
+
+
 def main():
     keyword = sys.argv[1] if len(sys.argv) > 1 else "health coach"
 
@@ -40,6 +59,7 @@ def main():
 
     with open(cookies_path) as f:
         cookies = json.load(f)
+    cookies = normalize_cookies(cookies)
 
     os.makedirs(OUT_DIR, exist_ok=True)
 

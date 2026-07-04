@@ -114,6 +114,25 @@ def add_to_vetting_queue(creator, vet_result, country):
     )
 
 
+SAME_SITE_MAP = {
+    "no_restriction": "None",
+    "unspecified": "Lax",
+    "lax": "Lax",
+    "strict": "Strict",
+    "none": "None",
+}
+
+
+def normalize_cookies(cookies):
+    cleaned = []
+    for c in cookies:
+        c = dict(c)
+        same_site = str(c.get("sameSite", "")).lower()
+        c["sameSite"] = SAME_SITE_MAP.get(same_site, "Lax")
+        cleaned.append(c)
+    return cleaned
+
+
 def parse_followers(text):
     if not text:
         return None
@@ -167,7 +186,7 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
             # Load cookies
             if cookies_json:
                 try:
-                    cookies = json.loads(cookies_json)
+                    cookies = normalize_cookies(json.loads(cookies_json))
                     context.add_cookies(cookies)
                     log("Session cookies loaded.")
                 except Exception as e:
