@@ -2,7 +2,7 @@ services:
   - type: web
     name: axolt-dashboard
     runtime: python
-    buildCommand: pip install -r requirements.txt && python -m playwright install --with-deps chromium
+    buildCommand: pip install -r requirements.txt && python -m playwright install chromium
     startCommand: gunicorn app:app
     rootDir: dashboard
     envVars:
