@@ -321,12 +321,27 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                     break
 
                 # Type the keyword into the real search box (client-side app, not URL-searchable)
-                search_box = page.query_selector("input[placeholder='Search'], input[type='search']")
+                search_box = None
+                for selector in [
+                    "input[placeholder='Search']",
+                    "input[type='search']",
+                    "input[aria-label*='Search' i]",
+                    "input[placeholder*='Search' i]",
+                ]:
+                    try:
+                        page.wait_for_selector(selector, timeout=8000, state="visible")
+                        search_box = page.query_selector(selector)
+                        if search_box:
+                            break
+                    except Exception:
+                        continue
+
                 if search_box:
                     search_box.fill(keyword)
                     search_box.press("Enter")
                     time.sleep(random.uniform(2, 4))
                 else:
+                    log("Page title/url for debugging: " + page.title() + " | " + page.url)
                     log("Could not find search box — selector needs verification.")
 
                 # NOTE: Country/Followers/Engagement filters are UI dropdowns on this
@@ -417,9 +432,11 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                             time.sleep(1)
 
                         if not followers_in_buckets(followers, follower_buckets):
+                            log(handle + " skipped — followers " + str(followers) + " outside selected buckets " + str(follower_buckets))
                             job["skipped"] += 1
                             continue
                         if min_er is not None and (engagement_rate is None or engagement_rate < min_er):
+                            log(handle + " skipped — engagement rate " + str(engagement_rate) + " below threshold " + str(min_er))
                             job["skipped"] += 1
                             continue
 
