@@ -3,6 +3,7 @@ import requests
 from datetime import datetime, timezone
 from functools import wraps
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
+from notion_settings import get_setting, set_setting
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-prod")
@@ -10,6 +11,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-prod")
 NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "")
 INFLUENCER_DB = "f07a187424e64bc7b1b992ceced311c5"
 CLINIC_DB = "cb01c955a4664a1eb0d66c1f835f1243"
+VETTING_QUEUE_DB = "2aec417ae85343dc96049ae73abe9df8"
 DASHBOARD_USER = os.environ.get("DASHBOARD_USER", "BenjiAxolt")
 DASHBOARD_PASS = os.environ.get("DASHBOARD_PASS", "")
 
@@ -29,10 +31,12 @@ NOTION_HEADERS = {
 }
 
 
-def query_db(db_id):
+def query_db(db_id, filter_body=None):
     pages, cursor = [], None
     while True:
         body = {"page_size": 100}
+        if filter_body:
+            body["filter"] = filter_body
         if cursor:
             body["start_cursor"] = cursor
         r = requests.post(
@@ -69,6 +73,10 @@ def get_prop(page, name):
         return p.get("number")
     if t == "multi_select":
         return [s.get("name", "") for s in p.get("multi_select", [])]
+    if t == "email":
+        return p.get("email")
+    if t == "url":
+        return p.get("url")
     return None
 
 
@@ -192,6 +200,124 @@ def dashboard_data():
         },
         "updated": datetime.now(timezone.utc).strftime("%-d %b %Y %H:%M UTC"),
     })
+
+
+@app.route("/api/settings/brand-brief", methods=["GET", "POST"])
+@login_required
+def brand_brief():
+    if request.method == "POST":
+        data = request.json or {}
+        set_setting("brand_brief", data.get("text", ""))
+        return jsonify({"status": "saved"})
+    return jsonify({"text": get_setting("brand_brief")})
+
+
+def vetting_page_to_dict(page):
+    return {
+        "id": page["id"],
+        "name": get_prop(page, "Name") or "",
+        "handle": get_prop(page, "Handle") or "",
+        "niche": get_prop(page, "Niche") or "",
+        "tags": get_prop(page, "Tags") or [],
+        "country": get_prop(page, "Country") or "",
+        "followers": get_prop(page, "Followers"),
+        "engagement_rate": get_prop(page, "Engagement Rate"),
+        "avg_views": get_prop(page, "Avg Views"),
+        "email": get_prop(page, "Email") or "",
+        "profile_url": get_prop(page, "Profile URL") or "",
+        "bio": get_prop(page, "Bio") or "",
+        "analysis": get_prop(page, "AI Analysis") or "",
+        "flag_note": get_prop(page, "Flag Note") or "",
+    }
+
+
+@app.route("/api/vetting/list")
+@login_required
+def vetting_list():
+    outcome = request.args.get("outcome", "Vetted")
+    if outcome not in ("Vetted", "Review"):
+        return jsonify({"error": "Invalid outcome"}), 400
+    pages = query_db(VETTING_QUEUE_DB, filter_body={
+        "property": "Outcome", "select": {"equals": outcome}
+    })
+    return jsonify({"creators": [vetting_page_to_dict(p) for p in pages]})
+
+
+@app.route("/api/vetting/approve", methods=["POST"])
+@login_required
+def vetting_approve():
+    data = request.json or {}
+    page_id = data.get("id")
+    if not page_id:
+        return jsonify({"error": "Missing id"}), 400
+
+    r = requests.get("https://api.notion.com/v1/pages/" + page_id, headers=NOTION_HEADERS)
+    page = r.json()
+    creator = vetting_page_to_dict(page)
+
+    props = {
+        "Name": {"title": [{"text": {"content": creator["name"] or creator["handle"] or "Unknown"}}]},
+        "Stage": {"select": {"name": "Lead"}},
+    }
+    if creator["handle"]:
+        props["Handle"] = {"rich_text": [{"text": {"content": creator["handle"]}}]}
+    if creator["followers"]:
+        props["Followers"] = {"number": creator["followers"]}
+    if creator["email"]:
+        props["Email"] = {"email": creator["email"]}
+    if creator["profile_url"]:
+        props["Social Media"] = {"url": creator["profile_url"]}
+    if creator["tags"]:
+        props["Category"] = {"multi_select": [{"name": t} for t in creator["tags"][:5]]}
+
+    requests.post(
+        "https://api.notion.com/v1/pages",
+        headers=NOTION_HEADERS,
+        json={"parent": {"database_id": INFLUENCER_DB}, "properties": props},
+    )
+    requests.patch(
+        "https://api.notion.com/v1/pages/" + page_id,
+        headers=NOTION_HEADERS,
+        json={"archived": True},
+    )
+    return jsonify({"status": "approved"})
+
+
+@app.route("/api/vetting/skip", methods=["POST"])
+@login_required
+def vetting_skip():
+    data = request.json or {}
+    page_id = data.get("id")
+    if not page_id:
+        return jsonify({"error": "Missing id"}), 400
+    requests.patch(
+        "https://api.notion.com/v1/pages/" + page_id,
+        headers=NOTION_HEADERS,
+        json={"archived": True},
+    )
+    return jsonify({"status": "skipped"})
+
+
+@app.route("/api/vetting/move-to-vetted", methods=["POST"])
+@login_required
+def vetting_move_to_vetted():
+    data = request.json or {}
+    page_id = data.get("id")
+    email = (data.get("email") or "").strip()
+    if not page_id:
+        return jsonify({"error": "Missing id"}), 400
+    if not email:
+        return jsonify({"error": "Email is required to move to Vetted"}), 400
+    requests.patch(
+        "https://api.notion.com/v1/pages/" + page_id,
+        headers=NOTION_HEADERS,
+        json={"properties": {
+            "Outcome": {"select": {"name": "Vetted"}},
+            "Email": {"email": email},
+            "Flag Note": {"rich_text": []},
+        }},
+    )
+    return jsonify({"status": "moved"})
 
 
 @app.route("/api/scrape/start", methods=["POST"])

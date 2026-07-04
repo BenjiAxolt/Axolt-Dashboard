@@ -5,8 +5,12 @@ import threading
 import requests
 import os
 
+from notion_settings import get_setting
+from vetting import vet_creator
+
 NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "")
 INFLUENCER_DB = "f07a187424e64bc7b1b992ceced311c5"
+VETTING_QUEUE_DB = "2aec417ae85343dc96049ae73abe9df8"
 
 NOTION_HEADERS = {
     "Authorization": "Bearer " + NOTION_TOKEN,
@@ -25,6 +29,9 @@ job = {
     "found": 0,
     "added": 0,
     "skipped": 0,
+    "auto_skipped": 0,
+    "vetted": 0,
+    "review": 0,
 }
 
 
@@ -77,24 +84,29 @@ def get_existing_handles():
     return handles
 
 
-def add_to_notion(name, handle, followers, categories, profile_url):
+def add_to_vetting_queue(creator, vet_result, country):
     props = {
-        "Name": {"title": [{"text": {"content": name}}]},
-        "Stage": {"select": {"name": "Lead"}},
+        "Name": {"title": [{"text": {"content": creator.get("name") or creator.get("handle") or "Unknown"}}]},
+        "Handle": {"rich_text": [{"text": {"content": creator.get("handle", "")}}]},
+        "Outcome": {"select": {"name": vet_result["outcome"]}},
+        "Niche": {"rich_text": [{"text": {"content": ", ".join(creator.get("categories", []))}}]},
+        "Tags": {"multi_select": [{"name": t} for t in vet_result.get("tags", [])[:5]]},
+        "Country": {"select": {"name": country}},
+        "AI Analysis": {"rich_text": [{"text": {"content": vet_result.get("analysis", "")[:2000]}}]},
+        "Flag Note": {"rich_text": [{"text": {"content": vet_result.get("flag_note", "")}}]},
+        "Bio": {"rich_text": [{"text": {"content": (creator.get("bio") or "")[:2000]}}]},
     }
-    if handle:
-        props["Handle"] = {"rich_text": [{"text": {"content": handle}}]}
-    if followers:
-        props["Followers"] = {"number": followers}
-    if categories:
-        props["Category"] = {"multi_select": [{"name": c} for c in categories[:5]]}
-    if profile_url:
-        props["Profile URL"] = {"url": profile_url}
+    if creator.get("followers"):
+        props["Followers"] = {"number": creator["followers"]}
+    if creator.get("profile_url"):
+        props["Profile URL"] = {"url": creator["profile_url"]}
+    if vet_result.get("email"):
+        props["Email"] = {"email": vet_result["email"]}
 
     requests.post(
         "https://api.notion.com/v1/pages",
         headers=NOTION_HEADERS,
-        json={"parent": {"database_id": INFLUENCER_DB}, "properties": props},
+        json={"parent": {"database_id": VETTING_QUEUE_DB}, "properties": props},
     )
 
 
@@ -125,6 +137,9 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
     job["found"] = 0
     job["added"] = 0
     job["skipped"] = 0
+    job["auto_skipped"] = 0
+    job["vetted"] = 0
+    job["review"] = 0
 
     try:
         log("Loading existing handles from Notion...")
@@ -134,6 +149,10 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
         log("Found " + str(len(notion_handles)) + " handles in Notion, " +
             str(len(persistent_seen)) + " in permanent dedup list ("
             + str(len(seen)) + " total unique).")
+
+        brand_brief = get_setting("brand_brief")
+        if not brand_brief:
+            log("Warning: no Brand Brief set in Templates — vetting will judge with no brief context.")
 
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
@@ -236,16 +255,43 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                         cat_els = card.query_selector_all("[data-testid='creator-category'], .creator-category")
                         categories = [el.inner_text().strip() for el in cat_els]
 
+                        # Extract bio (used for email discovery and brand-fit vetting)
+                        bio_el = card.query_selector("[data-testid='creator-bio'], .creator-bio")
+                        bio = bio_el.inner_text().strip() if bio_el else ""
+
                         # Profile URL
                         profile_link = card.query_selector("a")
                         profile_url = profile_link.get_attribute("href") if profile_link else ""
 
-                        log("Adding: " + name + " (" + handle + ")" + (" · " + str(followers) + " followers" if followers else ""))
-                        add_to_notion(name, "@" + handle_key if handle_key else handle, followers, categories, profile_url)
+                        creator = {
+                            "name": name,
+                            "handle": "@" + handle_key if handle_key else handle,
+                            "followers": followers,
+                            "categories": categories,
+                            "bio": bio,
+                            "profile_url": profile_url,
+                        }
+
+                        log("Vetting: " + name + " (" + handle + ")")
+                        try:
+                            vet_result = vet_creator(creator, brand_brief)
+                        except Exception as e:
+                            log("Vetting error for " + handle + ": " + str(e))
+                            job["skipped"] += 1
+                            continue
+
+                        add_to_vetting_queue(creator, vet_result, country)
                         seen.add(handle_key)
+                        job["found"] += 1
                         job["added"] += 1
                         added_this_run += 1
-                        job["found"] += 1
+                        if vet_result["outcome"] == "Auto-skipped":
+                            job["auto_skipped"] += 1
+                        elif vet_result["outcome"] == "Vetted":
+                            job["vetted"] += 1
+                        else:
+                            job["review"] += 1
+                        log(handle + " -> " + vet_result["outcome"])
 
                         # Human-speed delay between creators
                         time.sleep(random.uniform(2, 4))
@@ -262,7 +308,9 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
 
             browser.close()
 
-        log("Done. Added " + str(job["added"]) + " new creators, skipped " + str(job["skipped"]) + " duplicates.")
+        log("Done. Vetted " + str(job["added"]) + " creators (" +
+            str(job["vetted"]) + " Vetted, " + str(job["review"]) + " Review, " +
+            str(job["auto_skipped"]) + " Auto-skipped). Skipped " + str(job["skipped"]) + " (duplicate/filtered).")
 
     except Exception as e:
         log("Fatal error: " + str(e))

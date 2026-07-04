@@ -14,6 +14,11 @@
   .nav-btn { padding: 6px 14px; border-radius: 6px; border: none; background: transparent; color: #888; cursor: pointer; font-size: 12px; font-family: inherit; transition: background 0.15s, color 0.15s; }
   .nav-btn:hover { background: #1e1e28; color: #ccc; }
   .nav-btn.active { background: #534AB7; color: #fff; }
+  .vet-subtab { background: #1e1e28; color: #888; }
+  .vet-subtab:hover { color: #ccc; }
+  .vet-subtab.active { background: #534AB7; color: #fff; border-color: #534AB7; }
+  .creator-card { background: #16161f; border: 1px solid #1e1e28; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .creator-card .tag { display: inline-block; background: rgba(83,74,183,0.15); color: #7F77DD; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-right: 4px; }
   .nav-spacer { flex: 1; }
   .nav-updated { font-size: 11px; color: #555; }
   .nav-refresh { padding: 6px 12px; border-radius: 6px; border: 1px solid #2a2a38; background: transparent; color: #888; cursor: pointer; font-size: 11px; font-family: inherit; transition: all 0.15s; }
@@ -191,14 +196,22 @@
 
     <div class="panel">
       <div class="panel-title">Run Log</div>
-      <div style="display:flex;gap:16px;margin-bottom:12px">
+      <div style="display:flex;gap:14px;margin-bottom:12px;flex-wrap:wrap">
         <div style="text-align:center">
-          <div id="sc-added" style="font-size:22px;font-weight:700;color:#639922">0</div>
-          <div style="font-size:11px;color:#555">Added</div>
+          <div id="sc-vetted" style="font-size:20px;font-weight:700;color:#639922">0</div>
+          <div style="font-size:11px;color:#555">Vetted</div>
         </div>
         <div style="text-align:center">
-          <div id="sc-skipped" style="font-size:22px;font-weight:700;color:#666">0</div>
-          <div style="font-size:11px;color:#555">Skipped (dup)</div>
+          <div id="sc-review" style="font-size:20px;font-weight:700;color:#d4a72c">0</div>
+          <div style="font-size:11px;color:#555">Review</div>
+        </div>
+        <div style="text-align:center">
+          <div id="sc-auto-skipped" style="font-size:20px;font-weight:700;color:#b33">0</div>
+          <div style="font-size:11px;color:#555">Auto-skipped</div>
+        </div>
+        <div style="text-align:center">
+          <div id="sc-skipped" style="font-size:20px;font-weight:700;color:#666">0</div>
+          <div style="font-size:11px;color:#555">Dup/Filtered</div>
         </div>
         <div style="flex:1"></div>
         <div id="sc-status" style="font-size:11px;color:#555;align-self:center"></div>
@@ -208,10 +221,25 @@
   </div>
 </div>
 <div class="section" id="tab-vetting">
-  <div class="coming-soon"><div class="icon">✅</div><div class="msg">Vetting — coming soon</div></div>
+  <div style="display:flex;gap:8px;margin-bottom:16px">
+    <button id="vet-tab-vetted" class="vet-subtab active" onclick="switchVettingTab('Vetted')" style="border:1px solid #2a2a38;border-radius:6px;padding:7px 16px;font-size:12px;font-family:inherit;cursor:pointer">Vetted</button>
+    <button id="vet-tab-review" class="vet-subtab" onclick="switchVettingTab('Review')" style="border:1px solid #2a2a38;border-radius:6px;padding:7px 16px;font-size:12px;font-family:inherit;cursor:pointer">Review</button>
+  </div>
+  <div id="vetting-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px"></div>
+  <div id="vetting-empty" style="display:none;color:#666;font-size:13px;padding:30px 0;text-align:center">No creators here yet.</div>
 </div>
 <div class="section" id="tab-templates">
-  <div class="coming-soon"><div class="icon">📝</div><div class="msg">Templates — coming soon</div></div>
+  <div class="panel" style="max-width:700px">
+    <div class="panel-title">Brand Brief</div>
+    <div style="font-size:11px;color:#666;margin-bottom:10px">
+      What Axolt is, what it stands for, and what content alignment looks like. Claude reads this during every vetting run — changes take effect on the next run.
+    </div>
+    <textarea id="brief-text" rows="16" placeholder="Describe the brand, target audience, tone, and what makes a creator's content a fit..." style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:13px;padding:10px 12px;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+      <button id="brief-save-btn" onclick="saveBrief()" style="background:#534AB7;color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:12px;font-family:inherit;cursor:pointer">Save Brief</button>
+      <div id="brief-status" style="font-size:11px;color:#639922"></div>
+    </div>
+  </div>
 </div>
 <div class="section" id="tab-outreach">
   <div class="coming-soon"><div class="icon">✉️</div><div class="msg">Outreach — coming soon</div></div>
@@ -223,11 +251,145 @@
 <script>
 var DATA = null;
 
+var briefLoaded = false;
 function showTab(name, btn) {
   document.querySelectorAll('.section').forEach(function(s){ s.classList.remove('active'); });
   document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.remove('active'); });
   document.getElementById('tab-' + name).classList.add('active');
   if (btn) btn.classList.add('active');
+  if (name === 'vetting') {
+    loadVetting();
+  }
+  if (name === 'templates' && !briefLoaded) {
+    briefLoaded = true;
+    loadBrief();
+  }
+}
+
+function loadBrief() {
+  fetch('/api/settings/brand-brief').then(function(r){ return r.json(); }).then(function(d){
+    document.getElementById('brief-text').value = d.text || '';
+  });
+}
+
+function saveBrief() {
+  var text = document.getElementById('brief-text').value;
+  var btn = document.getElementById('brief-save-btn');
+  var status = document.getElementById('brief-status');
+  btn.disabled = true;
+  status.textContent = 'Saving...';
+  fetch('/api/settings/brand-brief', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({text: text})
+  }).then(function(r){ return r.json(); }).then(function(){
+    btn.disabled = false;
+    status.textContent = 'Saved.';
+    setTimeout(function(){ status.textContent = ''; }, 2000);
+  }).catch(function(){
+    btn.disabled = false;
+    status.textContent = 'Error saving.';
+  });
+}
+
+// Vetting
+var currentVettingOutcome = 'Vetted';
+function switchVettingTab(outcome) {
+  currentVettingOutcome = outcome;
+  document.getElementById('vet-tab-vetted').classList.toggle('active', outcome === 'Vetted');
+  document.getElementById('vet-tab-review').classList.toggle('active', outcome === 'Review');
+  loadVetting();
+}
+
+function loadVetting() {
+  var container = document.getElementById('vetting-cards');
+  var empty = document.getElementById('vetting-empty');
+  container.innerHTML = '<div style="color:#666;font-size:12px">Loading...</div>';
+  empty.style.display = 'none';
+  fetch('/api/vetting/list?outcome=' + encodeURIComponent(currentVettingOutcome))
+    .then(function(r){ return r.json(); })
+    .then(function(d){ renderVettingCards(d.creators || []); })
+    .catch(function(){ container.innerHTML = '<div style="color:#b33;font-size:12px">Failed to load.</div>'; });
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+function renderVettingCards(creators) {
+  var container = document.getElementById('vetting-cards');
+  var empty = document.getElementById('vetting-empty');
+  if (!creators.length) {
+    container.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  container.innerHTML = creators.map(function(c){
+    var tags = (c.tags || []).map(function(t){ return '<span class="tag">' + escapeHtml(t) + '</span>'; }).join('');
+    var stats = [
+      c.followers ? c.followers.toLocaleString() + ' followers' : null,
+      c.engagement_rate ? c.engagement_rate + '% ER' : null,
+      c.country || null,
+      c.avg_views ? c.avg_views.toLocaleString() + ' avg views' : null
+    ].filter(Boolean).join(' · ');
+
+    var actions;
+    if (currentVettingOutcome === 'Vetted') {
+      actions =
+        '<div style="display:flex;gap:8px;margin-top:8px">' +
+        '<button onclick="approveCreator(\'' + c.id + '\')" style="flex:1;background:#639922;color:#fff;border:none;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">Approve</button>' +
+        '<button onclick="skipCreator(\'' + c.id + '\')" style="flex:1;background:#b33;color:#fff;border:none;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">Skip</button>' +
+        '</div>';
+    } else {
+      actions =
+        '<div style="font-size:11px;color:#d4a72c;margin-top:2px">⚑ ' + escapeHtml(c.flag_note || 'Needs review') + '</div>' +
+        '<input type="email" placeholder="Paste email if missing" value="' + escapeHtml(c.email) + '" id="email-' + c.id + '" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:7px 9px;font-family:inherit;margin-top:6px">' +
+        '<div style="display:flex;gap:8px;margin-top:8px">' +
+        '<button onclick="moveToVetted(\'' + c.id + '\')" style="flex:1;background:#534AB7;color:#fff;border:none;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">Move to Vetted</button>' +
+        '<button onclick="skipCreator(\'' + c.id + '\')" style="flex:1;background:#b33;color:#fff;border:none;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">Skip</button>' +
+        '</div>';
+    }
+
+    return '<div class="creator-card">' +
+      '<div style="font-weight:600;font-size:14px">' + escapeHtml(c.name || c.handle) + '</div>' +
+      '<div style="font-size:11px;color:#777">' + escapeHtml(c.handle) + (c.niche ? ' · ' + escapeHtml(c.niche) : '') + '</div>' +
+      (stats ? '<div style="font-size:11px;color:#999">' + stats + '</div>' : '') +
+      (tags ? '<div>' + tags + '</div>' : '') +
+      (c.email && currentVettingOutcome === 'Vetted' ? '<div style="font-size:11px;color:#639922">' + escapeHtml(c.email) + '</div>' : '') +
+      (c.analysis ? '<div style="font-size:11px;color:#888;line-height:1.4">' + escapeHtml(c.analysis) + '</div>' : '') +
+      (c.profile_url ? '<a href="' + escapeHtml(c.profile_url) + '" target="_blank" style="font-size:11px;color:#7F77DD">View profile →</a>' : '') +
+      actions +
+      '</div>';
+  }).join('');
+}
+
+function approveCreator(id) {
+  fetch('/api/vetting/approve', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: id})
+  }).then(function(){ loadVetting(); });
+}
+
+function skipCreator(id) {
+  fetch('/api/vetting/skip', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: id})
+  }).then(function(){ loadVetting(); });
+}
+
+function moveToVetted(id) {
+  var email = document.getElementById('email-' + id).value.trim();
+  if (!email) { alert('Enter an email before moving to Vetted.'); return; }
+  fetch('/api/vetting/move-to-vetted', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: id, email: email})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { alert(d.error); return; }
+    loadVetting();
+  });
 }
 
 function pct(a, b) {
@@ -440,7 +602,9 @@ function startScrape() {
 }
 function pollScrape() {
   fetch('/api/scrape/status').then(function(r){ return r.json(); }).then(function(d){
-    document.getElementById('sc-added').textContent = d.added;
+    document.getElementById('sc-vetted').textContent = d.vetted;
+    document.getElementById('sc-review').textContent = d.review;
+    document.getElementById('sc-auto-skipped').textContent = d.auto_skipped;
     document.getElementById('sc-skipped').textContent = d.skipped;
     document.getElementById('sc-status').textContent = d.running ? 'Running...' : 'Idle';
     var logEl = document.getElementById('scrape-log');
