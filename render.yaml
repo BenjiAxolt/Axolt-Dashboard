@@ -10,3 +10,7 @@ services:
         sync: false
       - key: PLAYWRIGHT_BROWSERS_PATH
         value: /opt/render/project/.playwright
+      - key: GMAIL_ADDRESS
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false

@@ -5,6 +5,7 @@ from functools import wraps
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 from notion_settings import get_setting, set_setting
 import auth_store
+import email_sender
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-prod")
@@ -167,6 +168,48 @@ def set_password():
             session["must_reset"] = False
             return redirect(url_for("index"))
     return render_template("set_password.html", error=error)
+
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    message = None
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip()
+        user = auth_store.find_user_by_email(email) if email else None
+        # Always show the same message, whether or not the email matched —
+        # don't reveal which emails have accounts.
+        message = "If that email is associated with an account, a reset link has been sent."
+        if user:
+            token = auth_store.create_reset_token(user["id"])
+            reset_url = request.url_root.rstrip("/") + url_for("reset_password", token=token)
+            try:
+                email_sender.send_email(
+                    email,
+                    "Reset your Axolt dashboard password",
+                    "Click the link below to set a new password. This link expires in 1 hour.\n\n" + reset_url,
+                )
+            except Exception as e:
+                message = "Could not send reset email: " + str(e)
+    return render_template("forgot_password.html", message=message)
+
+
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    user = auth_store.find_user_by_reset_token(token)
+    if not user:
+        return render_template("reset_password.html", error="This reset link is invalid or has expired.", invalid=True)
+    error = None
+    if request.method == "POST":
+        new_password = request.form.get("password", "")
+        confirm = request.form.get("confirm", "")
+        if len(new_password) < 8:
+            error = "Password must be at least 8 characters."
+        elif new_password != confirm:
+            error = "Passwords don't match."
+        else:
+            auth_store.set_password(user["id"], new_password, must_reset=False)
+            return redirect(url_for("login"))
+    return render_template("reset_password.html", error=error, invalid=False)
 
 
 @app.route("/")
