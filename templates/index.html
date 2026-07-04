@@ -4,28 +4,33 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Axolt Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Open+Sans:wght@400;600&family=Newsreader:ital@1&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0f0f13; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; min-height: 100vh; }
+  body { background: #0f0f13; color: #e0e0e0; font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; min-height: 100vh; }
+  h1, h2, h3, .panel-title, .nav-btn, .vet-subtab, button, .stat-card .num { font-family: 'Manrope', -apple-system, sans-serif; }
 
   /* NAV */
   nav { display: flex; align-items: center; gap: 4px; padding: 14px 20px; border-bottom: 1px solid #1e1e28; background: #13131a; position: sticky; top: 0; z-index: 100; }
-  .nav-logo { font-weight: 700; font-size: 15px; color: #fff; margin-right: 16px; letter-spacing: -0.3px; }
+  .nav-logo { font-family: 'Newsreader', Georgia, serif; font-size: 22px; color: #fff; margin-right: 20px; letter-spacing: -0.3px; }
+  .nav-logo .x { font-style: italic; font-size: 0.75em; vertical-align: super; margin: 0 -0.02em; }
   .nav-btn { padding: 6px 14px; border-radius: 6px; border: none; background: transparent; color: #888; cursor: pointer; font-size: 12px; font-family: inherit; transition: background 0.15s, color 0.15s; }
   .nav-btn:hover { background: #1e1e28; color: #ccc; }
-  .nav-btn.active { background: #534AB7; color: #fff; }
+  .nav-btn.active { background: #FF333D; color: #fff; }
   .vet-subtab { background: #1e1e28; color: #888; }
   .vet-subtab:hover { color: #ccc; }
-  .vet-subtab.active { background: #534AB7; color: #fff; border-color: #534AB7; }
+  .vet-subtab.active { background: #FF333D; color: #fff; border-color: #FF333D; }
   .bucket-chip { display: flex; align-items: center; gap: 5px; background: #1e1e28; border: 1px solid #2a2a38; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: #ccc; cursor: pointer; }
-  .bucket-chip input { accent-color: #534AB7; }
+  .bucket-chip input { accent-color: #FF333D; }
   .creator-card { background: #16161f; border: 1px solid #1e1e28; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
-  .creator-card .tag { display: inline-block; background: rgba(83,74,183,0.15); color: #7F77DD; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-right: 4px; }
+  .creator-card .tag { display: inline-block; background: rgba(255,51,61,0.15); color: #ff8f94; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-right: 4px; }
   .nav-spacer { flex: 1; }
   .nav-updated { font-size: 11px; color: #555; }
   .nav-refresh { padding: 6px 12px; border-radius: 6px; border: 1px solid #2a2a38; background: transparent; color: #888; cursor: pointer; font-size: 11px; font-family: inherit; transition: all 0.15s; }
-  .nav-refresh:hover { border-color: #534AB7; color: #7F77DD; }
-  .nav-refresh.spinning { color: #534AB7; }
+  .nav-refresh:hover { border-color: #FF333D; color: #ff8f94; }
+  .nav-refresh.spinning { color: #FF333D; }
 
   /* SECTIONS */
   .section { display: none; padding: 24px 20px; }
@@ -79,14 +84,14 @@
   .content-strip .del-btn { font-size: 11px; color: #555; background: none; border: none; cursor: pointer; padding: 0 2px; }
   .content-strip .del-btn:hover { color: #E24B4A; }
   .no-content { font-size: 11px; color: #444; padding: 5px 0; }
-  .add-content-btn { font-size: 11px; color: #534AB7; background: none; border: none; cursor: pointer; padding: 4px 0; margin-top: 2px; }
-  .add-content-btn:hover { color: #7F77DD; }
+  .add-content-btn { font-size: 11px; color: #FF333D; background: none; border: none; cursor: pointer; padding: 4px 0; margin-top: 2px; }
+  .add-content-btn:hover { color: #ff8f94; }
   .add-content-row { display: flex; gap: 6px; margin-top: 6px; }
   .add-content-row input { flex: 1; background: #1e1e28; border: 1px solid #2a2a38; border-radius: 5px; color: #ddd; font-size: 11px; padding: 5px 8px; font-family: inherit; }
-  .add-content-row input:focus { outline: none; border-color: #534AB7; }
+  .add-content-row input:focus { outline: none; border-color: #FF333D; }
   .add-content-row button { font-size: 11px; padding: 5px 10px; border-radius: 5px; border: none; cursor: pointer; font-family: inherit; }
-  .save-btn { background: #534AB7; color: #fff; }
-  .save-btn:hover { background: #6257cc; }
+  .save-btn { background: #FF333D; color: #fff; }
+  .save-btn:hover { background: #ff525a; }
   .cancel-btn { background: #1e1e28; color: #888; }
   .cancel-btn:hover { color: #ccc; }
 
@@ -100,14 +105,14 @@
 
   /* LOADING */
   #loading { display: flex; align-items: center; justify-content: center; min-height: 60vh; color: #444; gap: 10px; }
-  .spinner { width: 20px; height: 20px; border: 2px solid #1e1e28; border-top-color: #534AB7; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  .spinner { width: 20px; height: 20px; border: 2px solid #1e1e28; border-top-color: #FF333D; border-radius: 50%; animation: spin 0.7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 
 <nav>
-  <span class="nav-logo">Axolt</span>
+  <span class="nav-logo">a<span class="x">x</span>olt</span>
   <button class="nav-btn active" onclick="showTab('influencers', this)">Influencers</button>
   <button class="nav-btn" onclick="showTab('clinics', this)">UK Clinics</button>
   <button class="nav-btn" onclick="showTab('scraper', this)">Scraper</button>
@@ -192,8 +197,8 @@
       </div>
 
       <div style="margin-bottom:14px">
-        <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">DAILY LIMIT <span id="limit-val" style="color:#7F77DD">15</span> <span style="color:#444">(max 25)</span></label>
-        <input type="range" id="scrape-limit" min="1" max="25" value="15" oninput="document.getElementById('limit-val').textContent=this.value" style="width:100%;accent-color:#534AB7">
+        <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">DAILY LIMIT <span id="limit-val" style="color:#ff8f94">15</span> <span style="color:#444">(max 25)</span></label>
+        <input type="range" id="scrape-limit" min="1" max="25" value="15" oninput="document.getElementById('limit-val').textContent=this.value" style="width:100%;accent-color:#FF333D">
       </div>
 
       <div style="margin-bottom:16px">
@@ -202,7 +207,7 @@
         <div style="font-size:10px;color:#444;margin-top:4px">Use the EditThisCookie browser extension → Export → paste here</div>
       </div>
 
-      <button id="scrape-btn" onclick="startScrape()" style="background:#534AB7;color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:12px;font-family:inherit;cursor:pointer;width:100%">Start Scrape</button>
+      <button id="scrape-btn" onclick="startScrape()" style="background:#FF333D;color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:12px;font-family:inherit;cursor:pointer;width:100%">Start Scrape</button>
     </div>
 
     <div class="panel">
@@ -248,7 +253,7 @@
     </div>
     <textarea id="brief-text" rows="16" placeholder="Describe the brand, target audience, tone, and what makes a creator's content a fit..." style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:13px;padding:10px 12px;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
     <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
-      <button id="brief-save-btn" onclick="saveBrief()" style="background:#534AB7;color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:12px;font-family:inherit;cursor:pointer">Save Brief</button>
+      <button id="brief-save-btn" onclick="saveBrief()" style="background:#FF333D;color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:12px;font-family:inherit;cursor:pointer">Save Brief</button>
       <div id="brief-status" style="font-size:11px;color:#639922"></div>
     </div>
   </div>
@@ -279,7 +284,7 @@
           <option value="Admin">Admin</option>
         </select>
       </div>
-      <button onclick="createUser()" style="background:#534AB7;color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:12px;font-family:inherit;cursor:pointer;width:100%">Generate & Add User</button>
+      <button onclick="createUser()" style="background:#FF333D;color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:12px;font-family:inherit;cursor:pointer;width:100%">Generate & Add User</button>
       <div id="admin-create-result" style="margin-top:14px;font-size:12px;color:#639922;display:none;background:#0f0f13;border-radius:6px;padding:10px;line-height:1.6"></div>
     </div>
 
@@ -438,7 +443,7 @@ function renderVettingCards(creators) {
         '<div style="font-size:11px;color:#d4a72c;margin-top:2px">⚑ ' + escapeHtml(c.flag_note || 'Needs review') + '</div>' +
         '<input type="email" placeholder="Paste email if missing" value="' + escapeHtml(c.email) + '" id="email-' + c.id + '" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:7px 9px;font-family:inherit;margin-top:6px">' +
         '<div style="display:flex;gap:8px;margin-top:8px">' +
-        '<button onclick="moveToVetted(\'' + c.id + '\')" style="flex:1;background:#534AB7;color:#fff;border:none;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">Move to Vetted</button>' +
+        '<button onclick="moveToVetted(\'' + c.id + '\')" style="flex:1;background:#FF333D;color:#fff;border:none;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">Move to Vetted</button>' +
         '<button onclick="skipCreator(\'' + c.id + '\')" style="flex:1;background:#b33;color:#fff;border:none;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">Skip</button>' +
         '</div>';
     }
@@ -450,7 +455,7 @@ function renderVettingCards(creators) {
       (tags ? '<div>' + tags + '</div>' : '') +
       (c.email && currentVettingOutcome === 'Vetted' ? '<div style="font-size:11px;color:#639922">' + escapeHtml(c.email) + '</div>' : '') +
       (c.analysis ? '<div style="font-size:11px;color:#888;line-height:1.4">' + escapeHtml(c.analysis) + '</div>' : '') +
-      (c.profile_url ? '<a href="' + escapeHtml(c.profile_url) + '" target="_blank" style="font-size:11px;color:#7F77DD">View profile →</a>' : '') +
+      (c.profile_url ? '<a href="' + escapeHtml(c.profile_url) + '" target="_blank" style="font-size:11px;color:#ff8f94">View profile →</a>' : '') +
       actions +
       '</div>';
   }).join('');
@@ -598,16 +603,16 @@ function renderDashboard(d) {
 
   // Influencer funnel
   var f = '';
-  f += makeBar('Total in DB',       inf.total,     inf.total, '#534AB7');
-  f += dropRow(pct(inf.contacted,   inf.total),    'contacted',              '#7F77DD');
-  f += makeBar('Contacted',         inf.contacted, inf.total, '#7F77DD');
+  f += makeBar('Total in DB',       inf.total,     inf.total, '#FF333D');
+  f += dropRow(pct(inf.contacted,   inf.total),    'contacted',              '#ff8f94');
+  f += makeBar('Contacted',         inf.contacted, inf.total, '#ff8f94');
   f += dropRow(pct(inf.intake,      inf.contacted),'filled intake',           '#BA7517');
   f += makeBar('Intake Filled',     inf.intake,    inf.total, '#BA7517');
   f += dropRow(pct(inf.delivered,   inf.intake),   'delivered',              '#639922');
   f += makeBar('Product Delivered', inf.delivered, inf.total, '#639922');
   f += '<div style="height:6px"></div>';
-  f += makeBar('14-Day Survey',     inf.survey_14, inf.total, '#534AB7', true);
-  f += makeBar('30-Day Survey',     inf.survey_30, inf.total, '#534AB7', true);
+  f += makeBar('14-Day Survey',     inf.survey_14, inf.total, '#FF333D', true);
+  f += makeBar('30-Day Survey',     inf.survey_30, inf.total, '#FF333D', true);
   f += '<div style="height:6px"></div>';
   f += dropRow(pct(inf.declined,    inf.contacted),'of contacted declined',   '#E24B4A');
   f += makeBar('Declined',          inf.declined,  inf.total, '#E24B4A');
@@ -626,9 +631,9 @@ function renderDashboard(d) {
 
   // Clinic funnel
   var cf = '';
-  cf += makeBar('Total',            cli.total,    cli.total, '#534AB7');
-  cf += dropRow(pct(cli.replied,    cli.total),   'replied',  '#7F77DD');
-  cf += makeBar('Replied',          cli.replied,  cli.total, '#7F77DD');
+  cf += makeBar('Total',            cli.total,    cli.total, '#FF333D');
+  cf += dropRow(pct(cli.replied,    cli.total),   'replied',  '#ff8f94');
+  cf += makeBar('Replied',          cli.replied,  cli.total, '#ff8f94');
   cf += dropRow(pct(cli.meeting,    cli.replied), 'meeting booked', '#BA7517');
   cf += makeBar('Meeting',          cli.meeting,  cli.total, '#BA7517');
   cf += dropRow(pct(cli.partner,    cli.meeting), 'became partner', '#639922');
