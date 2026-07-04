@@ -2,9 +2,11 @@ services:
   - type: web
     name: axolt-dashboard
     runtime: python
-    buildCommand: pip install -r requirements.txt && playwright install chromium && playwright install-deps chromium
+    buildCommand: pip install -r requirements.txt && python -m playwright install --with-deps chromium
     startCommand: gunicorn app:app
     rootDir: dashboard
     envVars:
       - key: NOTION_TOKEN
         sync: false
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: /opt/render/project/.playwright
