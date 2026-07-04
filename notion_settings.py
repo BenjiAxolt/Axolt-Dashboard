@@ -54,3 +54,16 @@ def set_setting(key, value):
             headers=NOTION_HEADERS,
             json={"parent": {"database_id": SETTINGS_DB}, "properties": props},
         )
+
+
+def get_counter(key):
+    try:
+        return int(get_setting(key, "0"))
+    except ValueError:
+        return 0
+
+
+def increment_counter(key, by=1):
+    new_value = get_counter(key) + by
+    set_setting(key, str(new_value))
+    return new_value

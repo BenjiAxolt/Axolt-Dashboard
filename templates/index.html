@@ -323,7 +323,20 @@
   <div id="outreach-empty" style="display:none;color:#666;font-size:13px;padding:30px 0;text-align:center">No approved creators awaiting outreach yet.</div>
 </div>
 <div class="section" id="tab-analytics">
-  <div class="coming-soon"><div class="icon">📊</div><div class="msg">SV Analytics — coming soon</div></div>
+  <div class="panel-title" style="margin-bottom:14px">Scraper &amp; Vetting Performance (All-Time)</div>
+  <div class="stat-grid" id="analytics-stats" style="margin-bottom:24px"></div>
+  <div class="two-col" style="max-width:700px">
+    <div class="panel">
+      <div class="panel-title">Pass Rate</div>
+      <div style="font-size:11px;color:#666;margin-bottom:10px">Scraped &rarr; passed vetting (Vetted + Review)</div>
+      <div id="analytics-pass-rate" style="font-size:32px;font-weight:700;color:#639922"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Approval Rate</div>
+      <div style="font-size:11px;color:#666;margin-bottom:10px">Passed vetting &rarr; green-lighted</div>
+      <div id="analytics-approval-rate" style="font-size:32px;font-weight:700;color:#639922"></div>
+    </div>
+  </div>
 </div>
 {% if is_admin %}
 <div class="section" id="tab-admin">
@@ -432,6 +445,9 @@ function showTab(name, btn) {
   if (name === 'outreach') {
     loadOutreach();
   }
+  if (name === 'analytics') {
+    loadAnalytics();
+  }
 }
 
 function switchMainDashboard(which) {
@@ -531,6 +547,24 @@ function loadOutreach() {
     renderOutreachCards(d.creators || []);
   }).catch(function(){
     container.innerHTML = '<div style="color:#b33;font-size:12px">Failed to load.</div>';
+  });
+}
+
+// SV Analytics
+function loadAnalytics() {
+  var statsEl = document.getElementById('analytics-stats');
+  statsEl.innerHTML = '<div style="color:#666;font-size:12px">Loading...</div>';
+  fetch('/api/analytics/summary').then(function(r){ return r.json(); }).then(function(d){
+    statsEl.innerHTML =
+      statCard(d.total_scraped, 'Total Scraped') +
+      statCard(d.total_passed_vetting, 'Passed Vetting') +
+      statCard(d.total_auto_skipped, 'Auto-skipped') +
+      statCard(d.total_approved, 'Green-lighted') +
+      statCard(d.total_review_skipped, 'Skipped in Review');
+    document.getElementById('analytics-pass-rate').textContent = d.pass_rate + '%';
+    document.getElementById('analytics-approval-rate').textContent = d.approval_rate + '%';
+  }).catch(function(){
+    statsEl.innerHTML = '<div style="color:#b33;font-size:12px">Failed to load.</div>';
   });
 }
 

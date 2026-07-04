@@ -8,7 +8,7 @@ import threading
 import requests
 import os
 
-from notion_settings import get_setting
+from notion_settings import get_setting, increment_counter
 from vetting import vet_creator
 
 NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "")
@@ -507,12 +507,16 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                         job["found"] += 1
                         job["added"] += 1
                         added_this_run += 1
+                        increment_counter("sv_total_scraped")
                         if vet_result["outcome"] == "Auto-skipped":
                             job["auto_skipped"] += 1
+                            increment_counter("sv_total_auto_skipped")
                         elif vet_result["outcome"] == "Vetted":
                             job["vetted"] += 1
+                            increment_counter("sv_total_vetted")
                         else:
                             job["review"] += 1
+                            increment_counter("sv_total_review")
                         log(handle + " -> " + vet_result["outcome"])
 
                         # Human-speed delay between creators

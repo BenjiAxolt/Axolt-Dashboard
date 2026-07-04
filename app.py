@@ -3,7 +3,7 @@ import requests
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
-from notion_settings import get_setting, set_setting
+from notion_settings import get_setting, set_setting, get_counter, increment_counter
 import auth_store
 import flags_store
 import email_sender
@@ -401,6 +401,31 @@ def vetting_summary():
     return jsonify(counts)
 
 
+@app.route("/api/analytics/summary")
+@login_required
+def analytics_summary():
+    scraped = get_counter("sv_total_scraped")
+    vetted = get_counter("sv_total_vetted")
+    review = get_counter("sv_total_review")
+    auto_skipped = get_counter("sv_total_auto_skipped")
+    approved = get_counter("sv_total_approved")
+    review_skipped = get_counter("sv_total_review_skipped")
+    passed_vetting = vetted + review
+
+    pass_rate = round(passed_vetting / scraped * 100, 1) if scraped else 0
+    approval_rate = round(approved / passed_vetting * 100, 1) if passed_vetting else 0
+
+    return jsonify({
+        "total_scraped": scraped,
+        "total_passed_vetting": passed_vetting,
+        "total_auto_skipped": auto_skipped,
+        "total_approved": approved,
+        "total_review_skipped": review_skipped,
+        "pass_rate": pass_rate,
+        "approval_rate": approval_rate,
+    })
+
+
 @app.route("/api/vetting/approve", methods=["POST"])
 @login_required
 def vetting_approve():
@@ -441,6 +466,7 @@ def vetting_approve():
         headers=NOTION_HEADERS,
         json={"archived": True},
     )
+    increment_counter("sv_total_approved")
     return jsonify({"status": "approved"})
 
 
@@ -451,6 +477,12 @@ def vetting_skip():
     page_id = data.get("id")
     if not page_id:
         return jsonify({"error": "Missing id"}), 400
+
+    r = requests.get("https://api.notion.com/v1/pages/" + page_id, headers=NOTION_HEADERS)
+    outcome = get_prop(r.json(), "Outcome")
+    if outcome == "Review":
+        increment_counter("sv_total_review_skipped")
+
     requests.patch(
         "https://api.notion.com/v1/pages/" + page_id,
         headers=NOTION_HEADERS,
