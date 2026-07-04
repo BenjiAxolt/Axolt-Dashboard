@@ -1,5 +1,6 @@
 import os
 import requests
+import threading
 from datetime import datetime, timezone
 from functools import wraps
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
@@ -182,14 +183,18 @@ def forgot_password():
         if user:
             token = auth_store.create_reset_token(user["id"])
             reset_url = request.url_root.rstrip("/") + url_for("reset_password", token=token)
-            try:
-                email_sender.send_email(
-                    email,
-                    "Reset your Axolt dashboard password",
-                    "Click the link below to set a new password. This link expires in 1 hour.\n\n" + reset_url,
-                )
-            except Exception as e:
-                message = "Could not send reset email: " + str(e)
+
+            def _send():
+                try:
+                    email_sender.send_email(
+                        email,
+                        "Reset your Axolt dashboard password",
+                        "Click the link below to set a new password. This link expires in 1 hour.\n\n" + reset_url,
+                    )
+                except Exception as e:
+                    print("Failed to send reset email:", e)
+
+            threading.Thread(target=_send, daemon=True).start()
     return render_template("forgot_password.html", message=message)
 
 
