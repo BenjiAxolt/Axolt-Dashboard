@@ -575,11 +575,32 @@ function copyBtnHtml(text) {
 
 function copyText(btnEl) {
   var text = btnEl.getAttribute('data-copy');
-  navigator.clipboard.writeText(text).then(function(){
-    var original = btnEl.textContent;
-    btnEl.textContent = 'Copied!';
+  var original = btnEl.textContent;
+
+  function showResult(ok) {
+    btnEl.textContent = ok ? 'Copied!' : 'Copy failed';
     setTimeout(function(){ btnEl.textContent = original; }, 1500);
-  });
+  }
+
+  function fallbackCopy() {
+    var textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(textarea);
+    showResult(ok);
+  }
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function(){ showResult(true); }).catch(fallbackCopy);
+  } else {
+    fallbackCopy();
+  }
 }
 
 function renderVettingCards(creators) {
