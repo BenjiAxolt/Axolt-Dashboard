@@ -18,7 +18,11 @@ NOTION_HEADERS = {
     "Content-Type": "application/json",
 }
 
-MARKETPLACE_PREFIX = "https://www.facebook.com/creator/marketplace"
+MARKETPLACE_PREFIX = "https://business.facebook.com/latest/creator_marketplace"
+MARKETPLACE_URL = os.environ.get(
+    "MARKETPLACE_URL",
+    MARKETPLACE_PREFIX + "/creators/search?business_id=1336144087729718&asset_id=415584441641514",
+)
 
 DEDUP_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dedup_list.json")
 
@@ -180,14 +184,24 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                     continue
 
                 log("Searching: " + keyword)
-                url = (MARKETPLACE_PREFIX + "/search?q=" + keyword.replace(" ", "+") +
-                       "&country=" + country)
-                page.goto(url, timeout=30000)
+                page.goto(MARKETPLACE_URL, timeout=30000)
                 time.sleep(random.uniform(3, 5))
 
                 if not page.url.startswith(MARKETPLACE_PREFIX):
                     log("SAFETY STOP: navigated outside the Marketplace (" + page.url + "). Aborting run.")
                     break
+
+                # Type the keyword into the real search box (client-side app, not URL-searchable)
+                search_box = page.query_selector("input[placeholder='Search'], input[type='search']")
+                if search_box:
+                    search_box.fill(keyword)
+                    search_box.press("Enter")
+                    time.sleep(random.uniform(2, 4))
+                else:
+                    log("Could not find search box — selector needs verification.")
+
+                # NOTE: Country/Followers/Engagement filters are UI dropdowns on this
+                # page (not URL params) — not yet wired up pending selector verification.
 
                 # Scroll to load results
                 drifted = False
