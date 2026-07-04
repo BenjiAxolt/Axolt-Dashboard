@@ -151,6 +151,31 @@
       </div>
 
       <div style="margin-bottom:14px">
+        <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">COUNTRY</label>
+        <select id="scrape-country" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
+          <option value="" selected disabled>Choose country</option>
+          <option value="US">United States</option>
+          <option value="GB">United Kingdom</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:14px;display:flex;gap:10px">
+        <div style="flex:1">
+          <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">MIN FOLLOWERS</label>
+          <input type="number" id="scrape-followers-min" min="0" placeholder="e.g. 5000" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">MAX FOLLOWERS</label>
+          <input type="number" id="scrape-followers-max" min="0" placeholder="e.g. 200000" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px">
+        <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">MIN ENGAGEMENT RATE (%)</label>
+        <input type="number" id="scrape-min-er" min="0" step="0.1" placeholder="e.g. 2.0" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
+      </div>
+
+      <div style="margin-bottom:14px">
         <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">DAILY LIMIT <span id="limit-val" style="color:#7F77DD">15</span> <span style="color:#444">(max 25)</span></label>
         <input type="range" id="scrape-limit" min="1" max="25" value="15" oninput="document.getElementById('limit-val').textContent=this.value" style="width:100%;accent-color:#534AB7">
       </div>
@@ -173,7 +198,7 @@
         </div>
         <div style="text-align:center">
           <div id="sc-skipped" style="font-size:22px;font-weight:700;color:#666">0</div>
-          <div style="font-size:11px;color:#555">Skipped</div>
+          <div style="font-size:11px;color:#555">Skipped (dup)</div>
         </div>
         <div style="flex:1"></div>
         <div id="sc-status" style="font-size:11px;color:#555;align-self:center"></div>
@@ -384,9 +409,14 @@ function refreshData() {
 var scrapePoller = null;
 function startScrape() {
   var keywords = document.getElementById('scrape-keywords').value.trim();
+  var country = document.getElementById('scrape-country').value;
   var limit = document.getElementById('scrape-limit').value;
+  var followersMin = document.getElementById('scrape-followers-min').value;
+  var followersMax = document.getElementById('scrape-followers-max').value;
+  var minEr = document.getElementById('scrape-min-er').value;
   var cookies = document.getElementById('scrape-cookies').value.trim();
   if (!keywords) { alert('Enter at least one keyword.'); return; }
+  if (!country) { alert('Choose a country.'); return; }
   var btn = document.getElementById('scrape-btn');
   btn.textContent = 'Running...';
   btn.disabled = true;
@@ -394,7 +424,15 @@ function startScrape() {
   fetch('/api/scrape/start', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({keywords: keywords, limit: parseInt(limit), cookies: cookies})
+    body: JSON.stringify({
+      keywords: keywords,
+      country: country,
+      limit: parseInt(limit),
+      followers_min: followersMin ? parseInt(followersMin) : null,
+      followers_max: followersMax ? parseInt(followersMax) : null,
+      min_er: minEr ? parseFloat(minEr) : null,
+      cookies: cookies
+    })
   }).then(function(r){ return r.json(); }).then(function(d){
     if (d.error) { alert(d.error); btn.textContent = 'Start Scrape'; btn.disabled = false; return; }
     scrapePoller = setInterval(pollScrape, 2000);

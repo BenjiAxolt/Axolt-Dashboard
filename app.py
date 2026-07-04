@@ -202,11 +202,19 @@ def scrape_start():
         return jsonify({"error": "Already running"}), 400
     data = request.json or {}
     keywords = [k.strip() for k in data.get("keywords", "").split("\n") if k.strip()]
+    country = data.get("country", "")
     limit = min(int(data.get("limit", 15)), 25)
     cookies_json = data.get("cookies", "")
     if not keywords:
         return jsonify({"error": "No keywords provided"}), 400
-    start_scrape_thread(keywords, limit, cookies_json)
+    if country not in ("US", "GB"):
+        return jsonify({"error": "Choose a valid country"}), 400
+    filters = {
+        "followers_min": data.get("followers_min"),
+        "followers_max": data.get("followers_max"),
+        "min_er": data.get("min_er"),
+    }
+    start_scrape_thread(keywords, limit, cookies_json, country, filters)
     return jsonify({"status": "started"})
 
 

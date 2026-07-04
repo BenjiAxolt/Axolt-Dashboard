@@ -14,6 +14,10 @@ NOTION_HEADERS = {
     "Content-Type": "application/json",
 }
 
+MARKETPLACE_PREFIX = "https://www.facebook.com/creator/marketplace"
+
+DEDUP_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dedup_list.json")
+
 # Global job state
 job = {
     "running": False,
@@ -22,6 +26,24 @@ job = {
     "added": 0,
     "skipped": 0,
 }
+
+
+def load_dedup():
+    if not os.path.exists(DEDUP_FILE):
+        return set()
+    try:
+        with open(DEDUP_FILE, "r") as f:
+            return set(json.load(f))
+    except Exception:
+        return set()
+
+
+def save_dedup(seen):
+    try:
+        with open(DEDUP_FILE, "w") as f:
+            json.dump(sorted(seen), f)
+    except Exception as e:
+        log("Dedup save error: " + str(e))
 
 
 def log(msg):
@@ -90,8 +112,13 @@ def parse_followers(text):
         return None
 
 
-def run_scrape(keywords, limit, cookies_json):
+def run_scrape(keywords, limit, cookies_json, country, filters=None):
     from playwright.sync_api import sync_playwright
+
+    filters = filters or {}
+    followers_min = filters.get("followers_min")
+    followers_max = filters.get("followers_max")
+    min_er = filters.get("min_er")
 
     job["running"] = True
     job["log"] = []
@@ -101,8 +128,12 @@ def run_scrape(keywords, limit, cookies_json):
 
     try:
         log("Loading existing handles from Notion...")
-        seen = get_existing_handles()
-        log("Found " + str(len(seen)) + " existing handles in Notion.")
+        notion_handles = get_existing_handles()
+        persistent_seen = load_dedup()
+        seen = notion_handles | persistent_seen
+        log("Found " + str(len(notion_handles)) + " handles in Notion, " +
+            str(len(persistent_seen)) + " in permanent dedup list ("
+            + str(len(seen)) + " total unique).")
 
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
@@ -130,14 +161,26 @@ def run_scrape(keywords, limit, cookies_json):
                     continue
 
                 log("Searching: " + keyword)
-                url = "https://www.facebook.com/creator/marketplace/search?q=" + keyword.replace(" ", "+") + "&country=GB"
+                url = (MARKETPLACE_PREFIX + "/search?q=" + keyword.replace(" ", "+") +
+                       "&country=" + country)
                 page.goto(url, timeout=30000)
                 time.sleep(random.uniform(3, 5))
 
+                if not page.url.startswith(MARKETPLACE_PREFIX):
+                    log("SAFETY STOP: navigated outside the Marketplace (" + page.url + "). Aborting run.")
+                    break
+
                 # Scroll to load results
+                drifted = False
                 for _ in range(3):
                     page.evaluate("window.scrollBy(0, 800)")
                     time.sleep(random.uniform(1, 2))
+                    if not page.url.startswith(MARKETPLACE_PREFIX):
+                        drifted = True
+                        break
+                if drifted:
+                    log("SAFETY STOP: navigated outside the Marketplace (" + page.url + "). Aborting run.")
+                    break
 
                 # Find creator cards — selectors may need updating based on Meta's current DOM
                 cards = page.query_selector_all("[data-testid='creator-card'], .creator-card, [role='article']")
@@ -170,6 +213,24 @@ def run_scrape(keywords, limit, cookies_json):
                         # Extract followers
                         followers_el = card.query_selector("[data-testid='follower-count'], .follower-count")
                         followers = parse_followers(followers_el.inner_text() if followers_el else "")
+
+                        if followers_min is not None and (followers is None or followers < followers_min):
+                            job["skipped"] += 1
+                            continue
+                        if followers_max is not None and (followers is None or followers > followers_max):
+                            job["skipped"] += 1
+                            continue
+
+                        # Extract engagement rate (avg views / followers), if available
+                        views_el = card.query_selector("[data-testid='avg-views'], .avg-views")
+                        avg_views = parse_followers(views_el.inner_text() if views_el else "")
+                        engagement_rate = None
+                        if avg_views and followers:
+                            engagement_rate = round((avg_views / followers) * 100, 2)
+
+                        if min_er is not None and (engagement_rate is None or engagement_rate < min_er):
+                            job["skipped"] += 1
+                            continue
 
                         # Extract categories
                         cat_els = card.query_selector_all("[data-testid='creator-category'], .creator-category")
@@ -206,9 +267,13 @@ def run_scrape(keywords, limit, cookies_json):
     except Exception as e:
         log("Fatal error: " + str(e))
     finally:
+        try:
+            save_dedup(seen)
+        except NameError:
+            pass
         job["running"] = False
 
 
-def start_scrape_thread(keywords, limit, cookies_json):
-    t = threading.Thread(target=run_scrape, args=(keywords, limit, cookies_json), daemon=True)
+def start_scrape_thread(keywords, limit, cookies_json, country, filters=None):
+    t = threading.Thread(target=run_scrape, args=(keywords, limit, cookies_json, country, filters), daemon=True)
     t.start()
