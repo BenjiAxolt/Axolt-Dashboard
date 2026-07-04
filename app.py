@@ -191,6 +191,7 @@ def forgot_password():
                         "Reset your Axolt dashboard password",
                         "Click the link below to set a new password. This link expires in 1 hour.\n\n" + reset_url,
                     )
+                    print("Reset email sent to", email)
                 except Exception as e:
                     print("Failed to send reset email:", e)
 
