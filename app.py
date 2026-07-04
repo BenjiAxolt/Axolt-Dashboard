@@ -336,9 +336,8 @@ def scrape_start():
     if country not in ("US", "GB"):
         return jsonify({"error": "Choose a valid country"}), 400
     filters = {
-        "followers_min": data.get("followers_min"),
-        "followers_max": data.get("followers_max"),
-        "min_er": data.get("min_er"),
+        "follower_buckets": data.get("follower_buckets") or [],
+        "interaction_rate": data.get("interaction_rate"),
     }
     start_scrape_thread(keywords, limit, cookies_json, country, filters)
     return jsonify({"status": "started"})

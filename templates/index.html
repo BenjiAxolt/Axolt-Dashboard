@@ -17,6 +17,8 @@
   .vet-subtab { background: #1e1e28; color: #888; }
   .vet-subtab:hover { color: #ccc; }
   .vet-subtab.active { background: #534AB7; color: #fff; border-color: #534AB7; }
+  .bucket-chip { display: flex; align-items: center; gap: 5px; background: #1e1e28; border: 1px solid #2a2a38; border-radius: 6px; padding: 6px 10px; font-size: 12px; color: #ccc; cursor: pointer; }
+  .bucket-chip input { accent-color: #534AB7; }
   .creator-card { background: #16161f; border: 1px solid #1e1e28; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
   .creator-card .tag { display: inline-block; background: rgba(83,74,183,0.15); color: #7F77DD; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-right: 4px; }
   .nav-spacer { flex: 1; }
@@ -164,20 +166,27 @@
         </select>
       </div>
 
-      <div style="margin-bottom:14px;display:flex;gap:10px">
-        <div style="flex:1">
-          <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">MIN FOLLOWERS</label>
-          <input type="number" id="scrape-followers-min" min="0" placeholder="e.g. 5000" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
-        </div>
-        <div style="flex:1">
-          <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">MAX FOLLOWERS</label>
-          <input type="number" id="scrape-followers-max" min="0" placeholder="e.g. 200000" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
+      <div style="margin-bottom:14px">
+        <label style="font-size:11px;color:#666;display:block;margin-bottom:6px">FOLLOWERS <span style="color:#444">(matches Meta's own buckets — select any)</span></label>
+        <div id="scrape-followers-buckets" style="display:flex;flex-wrap:wrap;gap:6px">
+          <label class="bucket-chip"><input type="checkbox" value="Under 10K"> Under 10K</label>
+          <label class="bucket-chip"><input type="checkbox" value="10K-25K"> 10K-25K</label>
+          <label class="bucket-chip"><input type="checkbox" value="25K-50K"> 25K-50K</label>
+          <label class="bucket-chip"><input type="checkbox" value="50K-75K"> 50K-75K</label>
+          <label class="bucket-chip"><input type="checkbox" value="75K-100K"> 75K-100K</label>
+          <label class="bucket-chip"><input type="checkbox" value="100K-250K"> 100K-250K</label>
+          <label class="bucket-chip"><input type="checkbox" value="250K-1M"> 250K-1M</label>
+          <label class="bucket-chip"><input type="checkbox" value="Over 1M"> Over 1M</label>
         </div>
       </div>
 
       <div style="margin-bottom:14px">
-        <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">MIN ENGAGEMENT RATE (%)</label>
-        <input type="number" id="scrape-min-er" min="0" step="0.1" placeholder="e.g. 2.0" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
+        <label style="font-size:11px;color:#666;display:block;margin-bottom:6px">INTERACTION RATE <span style="color:#444">(Meta's own filter — pick one)</span></label>
+        <div style="display:flex;gap:6px">
+          <label class="bucket-chip"><input type="radio" name="scrape-interaction-rate" value="Over 3%"> Over 3%</label>
+          <label class="bucket-chip"><input type="radio" name="scrape-interaction-rate" value="Over 5%"> Over 5%</label>
+          <label class="bucket-chip"><input type="radio" name="scrape-interaction-rate" value="Over 10%"> Over 10%</label>
+        </div>
       </div>
 
       <div style="margin-bottom:14px">
@@ -573,9 +582,11 @@ function startScrape() {
   var keywords = document.getElementById('scrape-keywords').value.trim();
   var country = document.getElementById('scrape-country').value;
   var limit = document.getElementById('scrape-limit').value;
-  var followersMin = document.getElementById('scrape-followers-min').value;
-  var followersMax = document.getElementById('scrape-followers-max').value;
-  var minEr = document.getElementById('scrape-min-er').value;
+  var followerBuckets = Array.prototype.slice.call(
+    document.querySelectorAll('#scrape-followers-buckets input:checked')
+  ).map(function(el){ return el.value; });
+  var interactionRateEl = document.querySelector('input[name="scrape-interaction-rate"]:checked');
+  var interactionRate = interactionRateEl ? interactionRateEl.value : null;
   var cookies = document.getElementById('scrape-cookies').value.trim();
   if (!keywords) { alert('Enter at least one keyword.'); return; }
   if (!country) { alert('Choose a country.'); return; }
@@ -590,9 +601,8 @@ function startScrape() {
       keywords: keywords,
       country: country,
       limit: parseInt(limit),
-      followers_min: followersMin ? parseInt(followersMin) : null,
-      followers_max: followersMax ? parseInt(followersMax) : null,
-      min_er: minEr ? parseFloat(minEr) : null,
+      follower_buckets: followerBuckets,
+      interaction_rate: interactionRate,
       cookies: cookies
     })
   }).then(function(r){ return r.json(); }).then(function(d){

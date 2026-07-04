@@ -228,13 +228,42 @@ def extract_thumbnails(page_html, limit=6):
     return thumbnails[:limit]
 
 
+FOLLOWER_BUCKET_RANGES = {
+    "Under 10K": (0, 10_000),
+    "10K-25K": (10_000, 25_000),
+    "25K-50K": (25_000, 50_000),
+    "50K-75K": (50_000, 75_000),
+    "75K-100K": (75_000, 100_000),
+    "100K-250K": (100_000, 250_000),
+    "250K-1M": (250_000, 1_000_000),
+    "Over 1M": (1_000_000, None),
+}
+
+INTERACTION_RATE_THRESHOLDS = {
+    "Over 3%": 3.0,
+    "Over 5%": 5.0,
+    "Over 10%": 10.0,
+}
+
+
+def followers_in_buckets(followers, bucket_names):
+    if not bucket_names or followers is None:
+        return not bucket_names
+    for name in bucket_names:
+        lo, hi = FOLLOWER_BUCKET_RANGES.get(name, (None, None))
+        if lo is None:
+            continue
+        if followers >= lo and (hi is None or followers < hi):
+            return True
+    return False
+
+
 def run_scrape(keywords, limit, cookies_json, country, filters=None):
     from playwright.sync_api import sync_playwright
 
     filters = filters or {}
-    followers_min = filters.get("followers_min")
-    followers_max = filters.get("followers_max")
-    min_er = filters.get("min_er")
+    follower_buckets = filters.get("follower_buckets") or []
+    min_er = INTERACTION_RATE_THRESHOLDS.get(filters.get("interaction_rate"))
 
     job["running"] = True
     job["log"] = []
@@ -387,10 +416,7 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                             close_btn.click()
                             time.sleep(1)
 
-                        if followers_min is not None and (followers is None or followers < followers_min):
-                            job["skipped"] += 1
-                            continue
-                        if followers_max is not None and (followers is None or followers > followers_max):
+                        if not followers_in_buckets(followers, follower_buckets):
                             job["skipped"] += 1
                             continue
                         if min_er is not None and (engagement_rate is None or engagement_rate < min_er):
