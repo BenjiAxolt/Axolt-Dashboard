@@ -1,6 +1,6 @@
 import os
 import requests
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 from notion_settings import get_setting, set_setting
@@ -322,7 +322,7 @@ def dashboard_data():
             "partner": cli_partner,
             "declined": cli_declined,
         },
-        "updated": datetime.now(timezone.utc).strftime("%-d %b %Y %H:%M UTC"),
+        "updated": datetime.now(timezone(timedelta(hours=2))).strftime("%-d %b %Y %H:%M") + " UTC+2",
     })
 
 
