@@ -115,9 +115,11 @@
   <button class="nav-btn" onclick="showTab('templates', this)">Templates</button>
   <button class="nav-btn" onclick="showTab('outreach', this)">Outreach</button>
   <button class="nav-btn" onclick="showTab('analytics', this)">SV Analytics</button>
+  {% if is_admin %}<button class="nav-btn" onclick="showTab('admin', this)">Admin</button>{% endif %}
   <span class="nav-spacer"></span>
   <span class="nav-updated" id="nav-updated"></span>
   <button class="nav-refresh" id="refresh-btn" onclick="refreshData()">&#8635; Refresh</button>
+  <a href="/logout" class="nav-refresh" style="margin-left:8px;text-decoration:none;display:inline-block">Log out</a>
 </nav>
 
 <div id="loading"><div class="spinner"></div> Loading...</div>
@@ -257,6 +259,37 @@
 <div class="section" id="tab-analytics">
   <div class="coming-soon"><div class="icon">📊</div><div class="msg">SV Analytics — coming soon</div></div>
 </div>
+{% if is_admin %}
+<div class="section" id="tab-admin">
+  <div class="two-col" style="max-width:900px">
+    <div class="panel">
+      <div class="panel-title">Add User</div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">USERNAME</label>
+        <input type="text" id="admin-new-username" placeholder="e.g. jane" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">EMAIL (optional, for password resets later)</label>
+        <input type="email" id="admin-new-email" placeholder="jane@axolt.com" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">ROLE</label>
+        <select id="admin-new-role" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
+          <option value="User">User</option>
+          <option value="Admin">Admin</option>
+        </select>
+      </div>
+      <button onclick="createUser()" style="background:#534AB7;color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:12px;font-family:inherit;cursor:pointer;width:100%">Generate & Add User</button>
+      <div id="admin-create-result" style="margin-top:14px;font-size:12px;color:#639922;display:none;background:#0f0f13;border-radius:6px;padding:10px;line-height:1.6"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Users</div>
+      <div id="admin-user-list" style="font-size:12px;color:#999"></div>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <script>
 var DATA = null;
@@ -273,6 +306,9 @@ function showTab(name, btn) {
   if (name === 'templates' && !briefLoaded) {
     briefLoaded = true;
     loadBrief();
+  }
+  if (name === 'admin') {
+    loadUsers();
   }
 }
 
@@ -299,6 +335,42 @@ function saveBrief() {
   }).catch(function(){
     btn.disabled = false;
     status.textContent = 'Error saving.';
+  });
+}
+
+// Admin — user management
+function loadUsers() {
+  var listEl = document.getElementById('admin-user-list');
+  listEl.textContent = 'Loading...';
+  fetch('/api/admin/users').then(function(r){ return r.json(); }).then(function(d){
+    var users = d.users || [];
+    if (!users.length) { listEl.textContent = 'No users added yet.'; return; }
+    listEl.innerHTML = users.map(function(u){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #1e1e28">' +
+        '<div><div style="color:#ddd">' + escapeHtml(u.username) + '</div>' +
+        '<div style="font-size:10px;color:#666">' + escapeHtml(u.role) + (u.must_reset ? ' · awaiting first login' : '') + '</div></div>' +
+        '</div>';
+    }).join('');
+  });
+}
+
+function createUser() {
+  var username = document.getElementById('admin-new-username').value.trim();
+  var email = document.getElementById('admin-new-email').value.trim();
+  var role = document.getElementById('admin-new-role').value;
+  if (!username) { alert('Enter a username.'); return; }
+  fetch('/api/admin/users', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({username: username, email: email, role: role})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { alert(d.error); return; }
+    var resultEl = document.getElementById('admin-create-result');
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = 'Created <strong>' + escapeHtml(d.username) + '</strong><br>Temporary password: <strong>' + escapeHtml(d.password) + '</strong><br><span style="color:#999">Send this to them — they\'ll be asked to set their own password on first login.</span>';
+    document.getElementById('admin-new-username').value = '';
+    document.getElementById('admin-new-email').value = '';
+    loadUsers();
   });
 }
 

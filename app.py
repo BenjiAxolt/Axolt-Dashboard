@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from functools import wraps
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 from notion_settings import get_setting, set_setting
+import auth_store
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-prod")
@@ -21,6 +22,19 @@ def login_required(f):
     def decorated(*args, **kwargs):
         if not session.get("logged_in"):
             return redirect(url_for("login"))
+        if session.get("must_reset") and request.endpoint != "set_password":
+            return redirect(url_for("set_password"))
+        return f(*args, **kwargs)
+    return decorated
+
+
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("logged_in"):
+            return redirect(url_for("login"))
+        if session.get("role") != "Admin":
+            return jsonify({"error": "Admin access required"}), 403
         return f(*args, **kwargs)
     return decorated
 
@@ -104,11 +118,27 @@ def fmt_followers(n):
 def login():
     error = None
     if request.method == "POST":
-        if (request.form.get("username") == DASHBOARD_USER and
-                request.form.get("password") == DASHBOARD_PASS):
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+
+        user = auth_store.find_user(username)
+        if user and user["password_hash"] and auth_store.verify_password(password, user["password_hash"]):
             session["logged_in"] = True
+            session["username"] = user["username"]
+            session["role"] = user["role"]
+            session["must_reset"] = user["must_reset"]
+            session["user_id"] = user["id"]
             return redirect(url_for("index"))
-        error = "Invalid username or password."
+        elif username == DASHBOARD_USER and password == DASHBOARD_PASS and DASHBOARD_PASS:
+            # Bootstrap admin account from env vars — always Admin, no forced reset.
+            session["logged_in"] = True
+            session["username"] = DASHBOARD_USER
+            session["role"] = "Admin"
+            session["must_reset"] = False
+            session["user_id"] = None
+            return redirect(url_for("index"))
+        else:
+            error = "Invalid username or password."
     return render_template("login.html", error=error)
 
 
@@ -118,10 +148,31 @@ def logout():
     return redirect(url_for("login"))
 
 
+@app.route("/set-password", methods=["GET", "POST"])
+def set_password():
+    if not session.get("logged_in"):
+        return redirect(url_for("login"))
+    error = None
+    if request.method == "POST":
+        new_password = request.form.get("password", "")
+        confirm = request.form.get("confirm", "")
+        if len(new_password) < 8:
+            error = "Password must be at least 8 characters."
+        elif new_password != confirm:
+            error = "Passwords don't match."
+        elif not session.get("user_id"):
+            error = "Cannot reset this account's password."
+        else:
+            auth_store.set_password(session["user_id"], new_password, must_reset=False)
+            session["must_reset"] = False
+            return redirect(url_for("index"))
+    return render_template("set_password.html", error=error)
+
+
 @app.route("/")
 @login_required
 def index():
-    return render_template("index.html")
+    return render_template("index.html", is_admin=(session.get("role") == "Admin"))
 
 
 @app.route("/api/dashboard")
@@ -318,6 +369,30 @@ def vetting_move_to_vetted():
         }},
     )
     return jsonify({"status": "moved"})
+
+
+@app.route("/api/admin/users", methods=["GET", "POST"])
+@login_required
+@admin_required
+def admin_users():
+    if request.method == "POST":
+        data = request.json or {}
+        username = (data.get("username") or "").strip()
+        role = data.get("role") or "User"
+        email = (data.get("email") or "").strip()
+        if not username:
+            return jsonify({"error": "Username is required"}), 400
+        if role not in ("Admin", "User"):
+            return jsonify({"error": "Invalid role"}), 400
+        if auth_store.find_user(username):
+            return jsonify({"error": "Username already exists"}), 400
+        password = auth_store.create_user(username, role=role, email=email)
+        return jsonify({"username": username, "password": password})
+
+    users = auth_store.list_users()
+    for u in users:
+        u.pop("password_hash", None)
+    return jsonify({"users": users})
 
 
 @app.route("/api/scrape/start", methods=["POST"])
