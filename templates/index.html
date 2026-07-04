@@ -9,11 +9,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Open+Sans:wght@400;600&family=Newsreader:ital@1&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0f0f13; color: #e0e0e0; font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; min-height: 100vh; }
+  html, body { height: 100%; }
+  body { background: #0f0f13; color: #e0e0e0; font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; display: flex; flex-direction: column; overflow: hidden; }
   h1, h2, h3, .panel-title, .nav-btn, .vet-subtab, button, .stat-card .num { font-family: 'Manrope', -apple-system, sans-serif; }
 
   /* NAV */
-  nav { display: flex; align-items: center; gap: 4px; padding: 14px 20px; border-bottom: 1px solid #1e1e28; background: #13131a; position: sticky; top: 0; z-index: 100; }
+  nav { flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 14px 20px; border-bottom: 1px solid #1e1e28; background: #13131a; position: sticky; top: 0; z-index: 100; }
   .nav-logo { font-family: 'Newsreader', Georgia, serif; font-size: 22px; color: #fff; margin-right: 20px; letter-spacing: -0.3px; }
   .nav-logo .x { font-style: italic; font-size: 0.75em; vertical-align: super; margin: 0 -0.02em; }
   .nav-btn { padding: 6px 14px; border-radius: 6px; border: none; background: transparent; color: #888; cursor: pointer; font-size: 12px; font-family: inherit; transition: background 0.15s, color 0.15s; }
@@ -33,14 +34,24 @@
   .nav-refresh.spinning { color: #FF333D; }
 
   /* SECTIONS */
-  .section { display: none; padding: 24px 20px; }
-  .section.active { display: block; }
+  .section { display: none; padding: 24px 20px; flex: 1; min-height: 0; overflow-y: auto; }
+  .section.active { display: flex; flex-direction: column; }
 
   /* CARDS */
   .stat-grid { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
   .stat-card { background: #16161f; border: 1px solid #1e1e28; border-radius: 10px; padding: 14px 18px; min-width: 110px; }
   .stat-card .num { font-size: 26px; font-weight: 700; color: #fff; line-height: 1; }
   .stat-card .lbl { font-size: 11px; color: #666; margin-top: 4px; }
+
+  /* Main Dashboard — fills viewport, no page scroll */
+  .stat-grid-fit { display: flex; gap: 12px; }
+  .stat-grid-fit .stat-card { flex: 1; min-width: 0; }
+  .dash-toggle { display: inline-flex; background: #1e1e28; border-radius: 8px; padding: 3px; gap: 2px; }
+  .dash-toggle button { padding: 6px 16px; border-radius: 6px; border: none; background: transparent; color: #888; font-family: 'Manrope', sans-serif; font-size: 12px; cursor: pointer; transition: background 0.15s, color 0.15s; }
+  .dash-toggle button.active { background: #FF333D; color: #fff; }
+  .week-calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  .week-calendar .day { background: #16161f; border: 1px solid #1e1e28; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; }
+  .week-calendar .day .day-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
 
   /* TWO-COL */
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -137,51 +148,55 @@
 
 <!-- MAIN DASHBOARD -->
 <div class="section active" id="tab-main">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <div style="display:flex;gap:8px">
-      <button id="main-tab-influencers" class="vet-subtab active" onclick="switchMainDashboard('influencers')">Influencers</button>
-      <button id="main-tab-clinics" class="vet-subtab" onclick="switchMainDashboard('clinics')">UK Clinics</button>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-shrink:0">
+    <div class="dash-toggle">
+      <button id="main-tab-influencers" class="active" onclick="switchMainDashboard('influencers')">Influencers</button>
+      <button id="main-tab-clinics" onclick="switchMainDashboard('clinics')">UK Clinics</button>
     </div>
     <button class="nav-refresh" id="refresh-btn" onclick="refreshData()">&#8635; Refresh</button>
   </div>
 
-  <div id="main-influencers-view">
-    <div class="two-col">
-      <div>
-        <div class="stat-grid" id="inf-stats" style="margin-bottom:16px"></div>
-        <div class="panel">
+  <div id="main-influencers-view" style="flex:1;display:flex;flex-direction:column;min-height:0">
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:16px;min-height:0">
+      <div style="display:flex;flex-direction:column;min-height:0">
+        <div class="stat-grid-fit" id="inf-stats"></div>
+        <div class="panel" style="flex:1;margin-top:16px;min-height:0;display:flex;flex-direction:column">
           <div class="panel-title">Pipeline Funnel</div>
-          <div id="inf-funnel"></div>
+          <div id="inf-funnel" style="flex:1;overflow-y:auto"></div>
         </div>
       </div>
-      <div>
-        <div class="panel" style="margin-bottom:16px">
-          <div class="panel-title">Seeded Influencers</div>
-          <div class="seeded-list" id="seeded-list"></div>
-        </div>
-        <div class="panel" style="min-height:180px">
-          <div class="panel-title">This Week</div>
-          <div style="color:#444;font-size:12px">Weekly calendar (Sun–Sat) coming soon</div>
-        </div>
+      <div class="panel" style="display:flex;flex-direction:column;min-height:0">
+        <div class="panel-title">Seeded Influencers</div>
+        <div class="seeded-list" id="seeded-list" style="flex:1;overflow-y:auto"></div>
       </div>
+    </div>
+    <div class="week-calendar" style="flex-shrink:0;margin-top:16px;height:130px">
+      <div class="day"><div class="day-label">Sun</div></div>
+      <div class="day"><div class="day-label">Mon</div></div>
+      <div class="day"><div class="day-label">Tue</div></div>
+      <div class="day"><div class="day-label">Wed</div></div>
+      <div class="day"><div class="day-label">Thu</div></div>
+      <div class="day"><div class="day-label">Fri</div></div>
+      <div class="day"><div class="day-label">Sat</div></div>
     </div>
   </div>
 
-  <div id="main-clinics-view" style="display:none">
-    <div class="two-col">
-      <div>
-        <div class="stat-grid" id="cli-stats" style="margin-bottom:16px"></div>
-        <div class="panel">
-          <div class="panel-title">Pipeline Funnel</div>
-          <div id="cli-funnel"></div>
-        </div>
+  <div id="main-clinics-view" style="display:none;flex:1;flex-direction:column;min-height:0">
+    <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+      <div class="stat-grid-fit" id="cli-stats"></div>
+      <div class="panel" style="flex:1;margin-top:16px;min-height:0;display:flex;flex-direction:column">
+        <div class="panel-title">Pipeline Funnel</div>
+        <div id="cli-funnel" style="flex:1;overflow-y:auto"></div>
       </div>
-      <div>
-        <div class="panel" style="min-height:300px">
-          <div class="panel-title">This Week</div>
-          <div style="color:#444;font-size:12px">Weekly calendar (Sun–Sat) coming soon</div>
-        </div>
-      </div>
+    </div>
+    <div class="week-calendar" style="flex-shrink:0;margin-top:16px;height:130px">
+      <div class="day"><div class="day-label">Sun</div></div>
+      <div class="day"><div class="day-label">Mon</div></div>
+      <div class="day"><div class="day-label">Tue</div></div>
+      <div class="day"><div class="day-label">Wed</div></div>
+      <div class="day"><div class="day-label">Thu</div></div>
+      <div class="day"><div class="day-label">Fri</div></div>
+      <div class="day"><div class="day-label">Sat</div></div>
     </div>
   </div>
 </div>
@@ -405,8 +420,8 @@ function showTab(name, btn) {
 function switchMainDashboard(which) {
   document.getElementById('main-tab-influencers').classList.toggle('active', which === 'influencers');
   document.getElementById('main-tab-clinics').classList.toggle('active', which === 'clinics');
-  document.getElementById('main-influencers-view').style.display = which === 'influencers' ? 'block' : 'none';
-  document.getElementById('main-clinics-view').style.display = which === 'clinics' ? 'block' : 'none';
+  document.getElementById('main-influencers-view').style.display = which === 'influencers' ? 'flex' : 'none';
+  document.getElementById('main-clinics-view').style.display = which === 'clinics' ? 'flex' : 'none';
 }
 
 function loadHomeSummary() {
