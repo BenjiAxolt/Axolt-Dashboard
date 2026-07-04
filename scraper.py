@@ -1,3 +1,4 @@
+import html
 import json
 import re
 import time
@@ -103,8 +104,12 @@ def add_to_vetting_queue(creator, vet_result, country):
     }
     if creator.get("followers"):
         props["Followers"] = {"number": creator["followers"]}
+    if creator.get("engagement_rate") is not None:
+        props["Engagement Rate"] = {"number": creator["engagement_rate"]}
     if creator.get("profile_url"):
         props["Profile URL"] = {"url": creator["profile_url"]}
+    if creator.get("thumbnails"):
+        props["Post Thumbnails"] = {"rich_text": [{"text": {"content": json.dumps(creator["thumbnails"])}}]}
     if vet_result.get("email"):
         props["Email"] = {"email": vet_result["email"]}
 
@@ -173,9 +178,9 @@ def parse_insights_stats(text):
 
 
 def parse_profile_meta(body_text):
-    """Extracts age/gender/country from the profile page's full text (Meta's CSS
-    classes are randomly generated per build, so we pattern-match text instead)."""
-    meta = {"age": None, "gender": None, "country": None}
+    """Extracts age/gender from the profile page's full text (Meta's CSS classes
+    are randomly generated per build, so we pattern-match text instead)."""
+    meta = {"age": None, "gender": None}
     age_m = AGE_RE.search(body_text)
     if age_m:
         meta["age"] = age_m.group(1)
@@ -184,6 +189,43 @@ def parse_profile_meta(body_text):
             meta["gender"] = g
             break
     return meta
+
+
+def parse_name_bio(body_text, handle_key):
+    """Extracts real display name and bio, which sit right after the handle in
+    the profile page's text, before the country/gender/age line cluster starts."""
+    raw_lines = [l.strip().replace("​", "") for l in body_text.split("\n")]
+    lines = [l for l in raw_lines if l]
+
+    idx = None
+    for i, l in enumerate(lines):
+        if l.lower().lstrip("@") == handle_key:
+            idx = i
+            break
+    if idx is None:
+        return "", ""
+
+    idx += 1
+    if idx < len(lines) and lines[idx] == "Responsive":
+        idx += 1
+    name = lines[idx] if idx < len(lines) else ""
+    idx += 1
+
+    stop_idx = len(lines)
+    for i in range(idx, len(lines)):
+        if lines[i] in GENDER_VALUES or AGE_RE.match(lines[i]):
+            stop_idx = max(idx, i - 1)  # exclude the country line just before gender/age
+            break
+
+    bio = html.unescape("\n".join(lines[idx:stop_idx]).strip())
+    return html.unescape(name), bio
+
+
+def extract_thumbnails(page_html, limit=6):
+    """Pulls post/reel thumbnail image URLs from the profile page's raw HTML."""
+    urls = re.findall(r'<img[^>]+src="([^"]+)"', page_html)
+    thumbnails = [html.unescape(u) for u in urls if "cdninstagram" in u or "scontent" in u]
+    return thumbnails[:limit]
 
 
 def run_scrape(keywords, limit, cookies_json, country, filters=None):
@@ -323,6 +365,8 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
 
                         body_text = profile_page.inner_text("body")
                         meta = parse_profile_meta(body_text)
+                        real_name, bio = parse_name_bio(body_text, handle_key)
+                        thumbnails = extract_thumbnails(profile_page.content())
 
                         insights_el = profile_page.query_selector("[data-pagelet='CreatorProfileInsightsOverview']")
                         stats = parse_insights_stats(insights_el.inner_text()) if insights_el else {}
@@ -354,12 +398,14 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                             continue
 
                         creator = {
-                            "name": handle,
+                            "name": real_name or handle,
                             "handle": "@" + handle_key,
                             "followers": followers,
+                            "engagement_rate": engagement_rate,
                             "categories": [],
-                            "bio": "",
+                            "bio": bio,
                             "profile_url": profile_url,
+                            "thumbnails": thumbnails,
                             "gender": meta.get("gender"),
                             "age": meta.get("age"),
                         }
