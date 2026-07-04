@@ -6,6 +6,8 @@ from flask import Flask, render_template, jsonify, request, session, redirect, u
 from notion_settings import get_setting, set_setting
 import auth_store
 import flags_store
+import email_sender
+import vetting
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-prod")
@@ -336,6 +338,26 @@ def brand_brief():
     return jsonify({"text": get_setting("brand_brief")})
 
 
+DEFAULT_OUTREACH_TEMPLATE = (
+    "Hi {name},\n\n"
+    "I'm reaching out from Axolt — we make a daily brain-nutrition drink and think your "
+    "content on {niche} would be a great fit for our creator program.\n\n"
+    "We'd love to send you our product to try, no strings attached. If you're interested, "
+    "just reply to this email and we'll get you set up.\n\n"
+    "Best,\nThe Axolt Team"
+)
+
+
+@app.route("/api/settings/outreach-template", methods=["GET", "POST"])
+@login_required
+def outreach_template():
+    if request.method == "POST":
+        data = request.json or {}
+        set_setting("outreach_template", data.get("text", ""))
+        return jsonify({"status": "saved"})
+    return jsonify({"text": get_setting("outreach_template", DEFAULT_OUTREACH_TEMPLATE)})
+
+
 def vetting_page_to_dict(page):
     return {
         "id": page["id"],
@@ -405,6 +427,9 @@ def vetting_approve():
         props["Social Media"] = {"url": creator["profile_url"]}
     if creator["tags"]:
         props["Category"] = {"multi_select": [{"name": t} for t in creator["tags"][:5]]}
+    description_parts = [p for p in [creator.get("niche"), creator.get("bio")] if p]
+    if description_parts:
+        props["Description"] = {"rich_text": [{"text": {"content": " — ".join(description_parts)[:2000]}}]}
 
     requests.post(
         "https://api.notion.com/v1/pages",
@@ -516,6 +541,82 @@ def admin_flag_generate_password(flag_id):
     auth_store.set_password(user["id"], new_password, must_reset=True)
     flags_store.resolve_flag(flag_id)
     return jsonify({"username": username, "password": new_password})
+
+
+def outreach_page_to_dict(page):
+    return {
+        "id": page["id"],
+        "name": get_prop(page, "Name") or "",
+        "handle": get_prop(page, "Handle") or "",
+        "niche": ", ".join(get_prop(page, "Category") or []),
+        "email": get_prop(page, "Email") or "",
+        "bio": get_prop(page, "Description") or "",
+        "draft": get_prop(page, "Outreach Draft") or "",
+    }
+
+
+@app.route("/api/outreach/list")
+@login_required
+def outreach_list():
+    pages = query_db(INFLUENCER_DB, filter_body={
+        "and": [
+            {"property": "Stage", "select": {"equals": "Lead"}},
+            {"property": "Email", "email": {"is_not_empty": True}},
+        ]
+    })
+    return jsonify({"creators": [outreach_page_to_dict(p) for p in pages]})
+
+
+@app.route("/api/outreach/draft/<page_id>", methods=["POST"])
+@login_required
+def outreach_draft(page_id):
+    r = requests.get("https://api.notion.com/v1/pages/" + page_id, headers=NOTION_HEADERS)
+    page = r.json()
+    creator = outreach_page_to_dict(page)
+
+    template = get_setting("outreach_template", DEFAULT_OUTREACH_TEMPLATE)
+    try:
+        draft = vetting.generate_outreach_email(template, creator)
+    except Exception as e:
+        return jsonify({"error": "Could not generate draft: " + str(e)}), 500
+
+    requests.patch(
+        "https://api.notion.com/v1/pages/" + page_id,
+        headers=NOTION_HEADERS,
+        json={"properties": {"Outreach Draft": {"rich_text": [{"text": {"content": draft[:2000]}}]}}},
+    )
+    return jsonify({"draft": draft})
+
+
+@app.route("/api/outreach/send", methods=["POST"])
+@login_required
+def outreach_send():
+    data = request.json or {}
+    page_id = data.get("id")
+    body = (data.get("body") or "").strip()
+    if not page_id or not body:
+        return jsonify({"error": "Missing id or body"}), 400
+
+    r = requests.get("https://api.notion.com/v1/pages/" + page_id, headers=NOTION_HEADERS)
+    page = r.json()
+    creator = outreach_page_to_dict(page)
+    if not creator["email"]:
+        return jsonify({"error": "This creator has no email on file"}), 400
+
+    try:
+        email_sender.send_email(creator["email"], "A quick note from Axolt", body)
+    except Exception as e:
+        return jsonify({"error": "Failed to send: " + str(e)}), 500
+
+    requests.patch(
+        "https://api.notion.com/v1/pages/" + page_id,
+        headers=NOTION_HEADERS,
+        json={"properties": {
+            "Stage": {"select": {"name": "Contacted"}},
+            "Outreach Sent": {"date": {"start": datetime.now(timezone.utc).isoformat()}},
+        }},
+    )
+    return jsonify({"status": "sent"})
 
 
 @app.route("/api/scrape/start", methods=["POST"])

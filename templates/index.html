@@ -305,9 +305,22 @@
       <div id="brief-status" style="font-size:11px;color:#639922"></div>
     </div>
   </div>
+
+  <div class="panel" style="max-width:700px;margin-top:16px">
+    <div class="panel-title">Outreach Email Template</div>
+    <div style="font-size:11px;color:#666;margin-bottom:10px">
+      Base template Claude personalizes for each approved creator in the Outreach tab. Use {name} and {niche} as placeholders.
+    </div>
+    <textarea id="outreach-template-text" rows="12" placeholder="Hi {name}, I'm reaching out from Axolt..." style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:13px;padding:10px 12px;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+      <button id="outreach-template-save-btn" onclick="saveOutreachTemplate()" style="background:#FF333D;color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:12px;font-family:inherit;cursor:pointer">Save Template</button>
+      <div id="outreach-template-status" style="font-size:11px;color:#639922"></div>
+    </div>
+  </div>
 </div>
 <div class="section" id="tab-outreach">
-  <div class="coming-soon"><div class="icon">✉️</div><div class="msg">Outreach — coming soon</div></div>
+  <div id="outreach-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px"></div>
+  <div id="outreach-empty" style="display:none;color:#666;font-size:13px;padding:30px 0;text-align:center">No approved creators awaiting outreach yet.</div>
 </div>
 <div class="section" id="tab-analytics">
   <div class="coming-soon"><div class="icon">📊</div><div class="msg">SV Analytics — coming soon</div></div>
@@ -404,6 +417,7 @@ function showTab(name, btn) {
   if (name === 'templates' && !briefLoaded) {
     briefLoaded = true;
     loadBrief();
+    loadOutreachTemplate();
   }
   if (name === 'admin') {
     loadUsers();
@@ -414,6 +428,9 @@ function showTab(name, btn) {
   }
   if (name === 'home') {
     loadHomeSummary();
+  }
+  if (name === 'outreach') {
+    loadOutreach();
   }
 }
 
@@ -475,6 +492,105 @@ function saveBrief() {
   }).catch(function(){
     btn.disabled = false;
     status.textContent = 'Error saving.';
+  });
+}
+
+function loadOutreachTemplate() {
+  fetch('/api/settings/outreach-template').then(function(r){ return r.json(); }).then(function(d){
+    document.getElementById('outreach-template-text').value = d.text || '';
+  });
+}
+
+function saveOutreachTemplate() {
+  var text = document.getElementById('outreach-template-text').value;
+  var btn = document.getElementById('outreach-template-save-btn');
+  var status = document.getElementById('outreach-template-status');
+  btn.disabled = true;
+  status.textContent = 'Saving...';
+  fetch('/api/settings/outreach-template', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({text: text})
+  }).then(function(r){ return r.json(); }).then(function(){
+    btn.disabled = false;
+    status.textContent = 'Saved.';
+    setTimeout(function(){ status.textContent = ''; }, 2000);
+  }).catch(function(){
+    btn.disabled = false;
+    status.textContent = 'Error saving.';
+  });
+}
+
+// Outreach
+function loadOutreach() {
+  var container = document.getElementById('outreach-cards');
+  var empty = document.getElementById('outreach-empty');
+  container.innerHTML = '<div style="color:#666;font-size:12px">Loading...</div>';
+  empty.style.display = 'none';
+  fetch('/api/outreach/list').then(function(r){ return r.json(); }).then(function(d){
+    renderOutreachCards(d.creators || []);
+  }).catch(function(){
+    container.innerHTML = '<div style="color:#b33;font-size:12px">Failed to load.</div>';
+  });
+}
+
+function renderOutreachCards(creators) {
+  var container = document.getElementById('outreach-cards');
+  var empty = document.getElementById('outreach-empty');
+  if (!creators.length) {
+    container.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  container.innerHTML = creators.map(function(c){
+    return '<div class="creator-card" id="outreach-card-' + c.id + '">' +
+      '<div style="font-weight:600;font-size:14px">' + escapeHtml(c.name || c.handle) + '</div>' +
+      '<div style="font-size:11px;color:#777">' + escapeHtml(c.handle) + (c.niche ? ' · ' + escapeHtml(c.niche) : '') + '</div>' +
+      '<div style="font-size:11px;color:#639922">' + escapeHtml(c.email) + '</div>' +
+      '<textarea id="outreach-draft-' + c.id + '" rows="8" placeholder="Click Generate Draft to have Claude write a personalized email..." style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit;resize:vertical;line-height:1.5">' + escapeHtml(c.draft) + '</textarea>' +
+      '<div style="display:flex;gap:8px">' +
+      '<button onclick="generateOutreachDraft(\'' + c.id + '\')" style="flex:1;background:#1e1e28;border:1px solid #2a2a38;color:#ccc;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">' + (c.draft ? 'Regenerate Draft' : 'Generate Draft') + '</button>' +
+      '<button onclick="sendOutreach(\'' + c.id + '\')" style="flex:1;background:#639922;color:#fff;border:none;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">Send</button>' +
+      '</div>' +
+      '<div id="outreach-status-' + c.id + '" style="font-size:11px"></div>' +
+      '</div>';
+  }).join('');
+}
+
+function generateOutreachDraft(id) {
+  var status = document.getElementById('outreach-status-' + id);
+  status.style.color = '#999';
+  status.textContent = 'Generating...';
+  fetch('/api/outreach/draft/' + id, {method: 'POST'}).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { status.style.color = '#E24B4A'; status.textContent = d.error; return; }
+    document.getElementById('outreach-draft-' + id).value = d.draft;
+    status.textContent = '';
+  }).catch(function(){
+    status.style.color = '#E24B4A';
+    status.textContent = 'Failed to generate draft.';
+  });
+}
+
+function sendOutreach(id) {
+  var body = document.getElementById('outreach-draft-' + id).value.trim();
+  var status = document.getElementById('outreach-status-' + id);
+  if (!body) { status.style.color = '#E24B4A'; status.textContent = 'Write or generate an email first.'; return; }
+  if (!confirm('Send this email now?')) return;
+  status.style.color = '#999';
+  status.textContent = 'Sending...';
+  fetch('/api/outreach/send', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: id, body: body})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { status.style.color = '#E24B4A'; status.textContent = d.error; return; }
+    var card = document.getElementById('outreach-card-' + id);
+    if (card) card.remove();
+    loadOutreach();
+  }).catch(function(){
+    status.style.color = '#E24B4A';
+    status.textContent = 'Failed to send.';
   });
 }
 

@@ -112,6 +112,28 @@ def assess_brand_fit(brand_brief, creator):
         }
 
 
+OUTREACH_SYSTEM = (
+    "You personalize outreach email templates for a brand's influencer seeding program. "
+    "You are given a base template and a creator's profile. Rewrite the template to feel "
+    "personally written for this specific creator — reference their niche/content naturally, "
+    "keep the same overall structure, tone, and length as the template, and fill in any "
+    "placeholders like {name} or {niche}. Respond with ONLY the final email body text, "
+    "no subject line, no commentary, no markdown formatting."
+)
+
+
+def generate_outreach_email(template, creator):
+    user = (
+        "TEMPLATE:\n" + (template or "") + "\n\n"
+        "CREATOR PROFILE:\n"
+        "Name: " + creator.get("name", "") + "\n"
+        "Handle: " + creator.get("handle", "") + "\n"
+        "Niche: " + creator.get("niche", "") + "\n"
+        "Bio/Description: " + creator.get("bio", "") + "\n"
+    )
+    return call_claude(OUTREACH_SYSTEM, user).strip()
+
+
 def vet_creator(creator, brand_brief):
     """
     creator: dict with name, handle, bio, categories, followers, website (optional)
