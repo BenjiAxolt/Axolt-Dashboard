@@ -112,9 +112,8 @@
 <body>
 
 <nav>
-  <span class="nav-logo">a<span class="x">x</span>olt</span>
-  <button class="nav-btn active" onclick="showTab('influencers', this)">Influencers</button>
-  <button class="nav-btn" onclick="showTab('clinics', this)">UK Clinics</button>
+  <span class="nav-logo" onclick="showTab('home', null)" style="cursor:pointer">a<span class="x">x</span>olt</span>
+  <button class="nav-btn active" onclick="showTab('main', this)">Main Dashboard</button>
   <button class="nav-btn" onclick="showTab('scraper', this)">Scraper</button>
   <button class="nav-btn" onclick="showTab('vetting', this)">Vetting</button>
   <button class="nav-btn" onclick="showTab('templates', this)">Templates</button>
@@ -130,33 +129,60 @@
 
 <div id="loading"><div class="spinner"></div> Loading...</div>
 
-<!-- INFLUENCERS -->
-<div class="section" id="tab-influencers">
-  <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
-    <button class="nav-refresh" id="refresh-btn" onclick="refreshData()">&#8635; Refresh</button>
-  </div>
-  <div class="stat-grid" id="inf-stats"></div>
-  <div class="two-col">
-    <div class="panel">
-      <div class="panel-title">Pipeline Funnel</div>
-      <div id="inf-funnel"></div>
-    </div>
-    <div class="panel">
-      <div class="panel-title">Seeded Influencers</div>
-      <div class="seeded-list" id="seeded-list"></div>
-    </div>
-  </div>
+<!-- HOME -->
+<div class="section" id="tab-home">
+  <div class="panel-title" style="margin-bottom:14px">Overview</div>
+  <div class="stat-grid" id="home-stats"></div>
 </div>
 
-<!-- CLINICS -->
-<div class="section" id="tab-clinics">
-  <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
-    <button class="nav-refresh" onclick="refreshData()">&#8635; Refresh</button>
+<!-- MAIN DASHBOARD -->
+<div class="section active" id="tab-main">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div style="display:flex;gap:8px">
+      <button id="main-tab-influencers" class="vet-subtab active" onclick="switchMainDashboard('influencers')">Influencers</button>
+      <button id="main-tab-clinics" class="vet-subtab" onclick="switchMainDashboard('clinics')">UK Clinics</button>
+    </div>
+    <button class="nav-refresh" id="refresh-btn" onclick="refreshData()">&#8635; Refresh</button>
   </div>
-  <div class="stat-grid" id="cli-stats"></div>
-  <div class="panel" style="max-width:480px">
-    <div class="panel-title">Pipeline Funnel</div>
-    <div id="cli-funnel"></div>
+
+  <div id="main-influencers-view">
+    <div class="two-col">
+      <div>
+        <div class="stat-grid" id="inf-stats" style="margin-bottom:16px"></div>
+        <div class="panel">
+          <div class="panel-title">Pipeline Funnel</div>
+          <div id="inf-funnel"></div>
+        </div>
+      </div>
+      <div>
+        <div class="panel" style="margin-bottom:16px">
+          <div class="panel-title">Seeded Influencers</div>
+          <div class="seeded-list" id="seeded-list"></div>
+        </div>
+        <div class="panel" style="min-height:180px">
+          <div class="panel-title">This Week</div>
+          <div style="color:#444;font-size:12px">Weekly calendar (Sun–Sat) coming soon</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="main-clinics-view" style="display:none">
+    <div class="two-col">
+      <div>
+        <div class="stat-grid" id="cli-stats" style="margin-bottom:16px"></div>
+        <div class="panel">
+          <div class="panel-title">Pipeline Funnel</div>
+          <div id="cli-funnel"></div>
+        </div>
+      </div>
+      <div>
+        <div class="panel" style="min-height:300px">
+          <div class="panel-title">This Week</div>
+          <div style="color:#444;font-size:12px">Weekly calendar (Sun–Sat) coming soon</div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -371,6 +397,44 @@ function showTab(name, btn) {
   if (name === 'profile') {
     loadProfile();
   }
+  if (name === 'home') {
+    loadHomeSummary();
+  }
+}
+
+function switchMainDashboard(which) {
+  document.getElementById('main-tab-influencers').classList.toggle('active', which === 'influencers');
+  document.getElementById('main-tab-clinics').classList.toggle('active', which === 'clinics');
+  document.getElementById('main-influencers-view').style.display = which === 'influencers' ? 'block' : 'none';
+  document.getElementById('main-clinics-view').style.display = which === 'clinics' ? 'block' : 'none';
+}
+
+function loadHomeSummary() {
+  var el = document.getElementById('home-stats');
+  if (!el) return;
+  var html = '';
+  if (DATA) {
+    html += statCard(DATA.influencers.total, 'Influencers Total') +
+      statCard(DATA.influencers.contacted, 'Influencers Contacted') +
+      statCard(DATA.influencers.delivered, 'Product Delivered') +
+      statCard(DATA.clinics.total, 'Clinics Total') +
+      statCard(DATA.clinics.partner, 'Clinics Partnered');
+  }
+  el.innerHTML = html + '<div class="stat-card"><div class="num" style="color:#666">…</div><div class="lbl">Loading vetting &amp; flags</div></div>';
+
+  fetch('/api/vetting/summary').then(function(r){ return r.json(); }).then(function(v){
+    var extra = statCard(v['Vetted'] || 0, 'Vetted') + statCard(v['Review'] || 0, 'Needs Review');
+    {% if is_admin %}
+    fetch('/api/admin/flags').then(function(r){ return r.json(); }).then(function(f){
+      extra += statCard((f.flags || []).length, 'Open Flags');
+      el.innerHTML = html + extra;
+    });
+    {% else %}
+    el.innerHTML = html + extra;
+    {% endif %}
+  }).catch(function(){
+    el.innerHTML = html;
+  });
 }
 
 function loadBrief() {
@@ -934,9 +998,9 @@ fetch('/api/dashboard')
   .then(function(d){
     DATA = d;
     document.getElementById('loading').style.display = 'none';
-    showTab('influencers', document.querySelector('.nav-btn.active'));
-    document.getElementById('tab-influencers').classList.add('active');
+    showTab('main', document.querySelector('.nav-btn.active'));
     renderDashboard(d);
+    loadHomeSummary();
   })
   .catch(function(e){
     document.getElementById('loading').innerHTML = '<span style="color:#E24B4A">Failed to load data. Check NOTION_TOKEN.</span>';

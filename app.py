@@ -367,6 +367,18 @@ def vetting_list():
     return jsonify({"creators": [vetting_page_to_dict(p) for p in pages]})
 
 
+@app.route("/api/vetting/summary")
+@login_required
+def vetting_summary():
+    pages = query_db(VETTING_QUEUE_DB)
+    counts = {"Vetted": 0, "Review": 0, "Auto-skipped": 0}
+    for p in pages:
+        outcome = get_prop(p, "Outcome")
+        if outcome in counts:
+            counts[outcome] += 1
+    return jsonify(counts)
+
+
 @app.route("/api/vetting/approve", methods=["POST"])
 @login_required
 def vetting_approve():
