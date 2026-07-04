@@ -101,6 +101,25 @@ def main():
         page.screenshot(path=screenshot_path, full_page=True)
         print("Saved screenshot to:", screenshot_path)
 
+        # Open the first creator's profile page to see where follower/ER/bio data lives
+        first_card = page.query_selector("a[aria-label^='Open portfolio for ']")
+        if first_card:
+            name = first_card.get_attribute("aria-label")
+            print("Opening profile for:", name)
+            first_card.click()
+            time.sleep(4)
+
+            profile_html_path = os.path.join(OUT_DIR, "profile.html")
+            with open(profile_html_path, "w") as f:
+                f.write(page.content())
+            print("Saved profile page HTML to:", profile_html_path)
+
+            profile_screenshot_path = os.path.join(OUT_DIR, "profile_screenshot.png")
+            page.screenshot(path=profile_screenshot_path, full_page=True)
+            print("Saved profile screenshot to:", profile_screenshot_path)
+        else:
+            print("No creator card found to open a profile from.")
+
         browser.close()
 
 
