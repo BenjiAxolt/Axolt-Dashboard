@@ -223,7 +223,8 @@
           <div style="font-size:11px;color:#555">Dup/Filtered</div>
         </div>
         <div style="flex:1"></div>
-        <div id="sc-status" style="font-size:11px;color:#555;align-self:center"></div>
+        <div id="sc-status" style="font-size:11px;color:#555;align-self:center;margin-right:10px"></div>
+        <button id="scrape-reset-btn" onclick="resetScrapeLog()" style="background:transparent;border:1px solid #2a2a38;border-radius:6px;color:#888;padding:5px 12px;font-size:11px;font-family:inherit;cursor:pointer">Reset</button>
       </div>
       <div id="scrape-log" style="background:#0f0f13;border-radius:6px;padding:10px;height:320px;overflow-y:auto;font-size:11px;color:#666;font-family:monospace;line-height:1.6">Waiting to start...</div>
     </div>
@@ -593,7 +594,6 @@ function startScrape() {
   var btn = document.getElementById('scrape-btn');
   btn.textContent = 'Running...';
   btn.disabled = true;
-  document.getElementById('scrape-log').textContent = '';
   fetch('/api/scrape/start', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -628,6 +628,29 @@ function pollScrape() {
     }
   });
 }
+
+function resetScrapeLog() {
+  fetch('/api/scrape/reset', {method: 'POST'}).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { alert(d.error); return; }
+    document.getElementById('sc-vetted').textContent = '0';
+    document.getElementById('sc-review').textContent = '0';
+    document.getElementById('sc-auto-skipped').textContent = '0';
+    document.getElementById('sc-skipped').textContent = '0';
+    document.getElementById('sc-status').textContent = '';
+    document.getElementById('scrape-log').textContent = 'Waiting to start...';
+  });
+}
+
+// Show last known scrape state on page load (survives refresh/crash),
+// and resume live polling if a scrape is still genuinely in progress.
+fetch('/api/scrape/status').then(function(r){ return r.json(); }).then(function(d){
+  if (d.running) {
+    document.getElementById('scrape-btn').textContent = 'Running...';
+    document.getElementById('scrape-btn').disabled = true;
+    scrapePoller = setInterval(pollScrape, 2000);
+  }
+  pollScrape();
+});
 
 // Initial load
 fetch('/api/dashboard')

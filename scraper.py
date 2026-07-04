@@ -1,3 +1,4 @@
+import copy
 import html
 import json
 import re
@@ -27,9 +28,9 @@ MARKETPLACE_URL = os.environ.get(
 )
 
 DEDUP_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dedup_list.json")
+JOB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "job_state.json")
 
-# Global job state
-job = {
+DEFAULT_JOB = {
     "running": False,
     "log": [],
     "found": 0,
@@ -39,6 +40,33 @@ job = {
     "vetted": 0,
     "review": 0,
 }
+
+
+def load_job():
+    if not os.path.exists(JOB_FILE):
+        return copy.deepcopy(DEFAULT_JOB)
+    try:
+        with open(JOB_FILE, "r") as f:
+            loaded = json.load(f)
+        # A restored process never has an actual browser running, even if
+        # the last write said otherwise (e.g. the process crashed mid-run).
+        loaded["running"] = False
+        return loaded
+    except Exception:
+        return copy.deepcopy(DEFAULT_JOB)
+
+
+def save_job():
+    try:
+        with open(JOB_FILE, "w") as f:
+            json.dump(job, f)
+    except Exception:
+        pass
+
+
+# Global job state — restored from disk so a crash/restart doesn't wipe the
+# last run's results before the user has a chance to see them.
+job = load_job()
 
 
 def load_dedup():
@@ -62,6 +90,7 @@ def save_dedup(seen):
 def log(msg):
     job["log"].append(msg)
     print(msg)
+    save_job()
 
 
 def get_existing_handles():
@@ -288,7 +317,19 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
             log("Warning: no Brand Brief set in Templates — vetting will judge with no brief context.")
 
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    "--disable-gpu",
+                    "--disable-dev-shm-usage",
+                    "--no-sandbox",
+                    "--disable-extensions",
+                    "--disable-background-networking",
+                    "--disable-default-apps",
+                    "--disable-sync",
+                    "--js-flags=--max-old-space-size=256",
+                ],
+            )
             context = browser.new_context(
                 user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
             )
@@ -501,6 +542,7 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
         except NameError:
             pass
         job["running"] = False
+        save_job()
 
 
 def start_scrape_thread(keywords, limit, cookies_json, country, filters=None):

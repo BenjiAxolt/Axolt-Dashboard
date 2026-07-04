@@ -350,5 +350,18 @@ def scrape_status():
     return jsonify(job)
 
 
+@app.route("/api/scrape/reset", methods=["POST"])
+@login_required
+def scrape_reset():
+    import copy
+    from scraper import job, save_job, DEFAULT_JOB
+    if job.get("running"):
+        return jsonify({"error": "Cannot reset while a scrape is running"}), 400
+    job.clear()
+    job.update(copy.deepcopy(DEFAULT_JOB))
+    save_job()
+    return jsonify({"status": "reset"})
+
+
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

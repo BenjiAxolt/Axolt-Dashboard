@@ -3,4 +3,5 @@ __pycache__/
 cookies.json
 debug_output/
 dedup_list.json
+job_state.json
 .env
