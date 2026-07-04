@@ -123,7 +123,8 @@
   {% if is_admin %}<button class="nav-btn" onclick="showTab('admin', this)">Admin</button>{% endif %}
   <span class="nav-spacer"></span>
   <span class="nav-updated" id="nav-updated"></span>
-  <button class="nav-refresh" id="refresh-btn" onclick="refreshData()">&#8635; Refresh</button>
+  <a href="/report-issue" class="nav-refresh" style="margin-left:8px;text-decoration:none;display:inline-block">Report Issue</a>
+  <button class="nav-refresh" onclick="showTab('profile', null)" style="margin-left:8px">{{ username }}</button>
   <a href="/logout" class="nav-refresh" style="margin-left:8px;text-decoration:none;display:inline-block">Log out</a>
 </nav>
 
@@ -131,6 +132,9 @@
 
 <!-- INFLUENCERS -->
 <div class="section" id="tab-influencers">
+  <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+    <button class="nav-refresh" id="refresh-btn" onclick="refreshData()">&#8635; Refresh</button>
+  </div>
   <div class="stat-grid" id="inf-stats"></div>
   <div class="two-col">
     <div class="panel">
@@ -146,6 +150,9 @@
 
 <!-- CLINICS -->
 <div class="section" id="tab-clinics">
+  <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+    <button class="nav-refresh" onclick="refreshData()">&#8635; Refresh</button>
+  </div>
   <div class="stat-grid" id="cli-stats"></div>
   <div class="panel" style="max-width:480px">
     <div class="panel-title">Pipeline Funnel</div>
@@ -274,7 +281,7 @@
         <input type="text" id="admin-new-username" placeholder="e.g. jane" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
       </div>
       <div style="margin-bottom:14px">
-        <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">EMAIL (optional, for password resets later)</label>
+        <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">EMAIL (optional)</label>
         <input type="email" id="admin-new-email" placeholder="jane@axolt.com" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
       </div>
       <div style="margin-bottom:16px">
@@ -293,8 +300,53 @@
       <div id="admin-user-list" style="font-size:12px;color:#999"></div>
     </div>
   </div>
+
+  <div class="panel" style="max-width:900px;margin-top:16px">
+    <div class="panel-title">Flags — Password Resets &amp; Issue Reports</div>
+    <div id="admin-flags-list" style="font-size:12px;color:#999"></div>
+  </div>
 </div>
 {% endif %}
+
+<div class="section" id="tab-profile">
+  <div class="panel" style="max-width:420px">
+    <div class="panel-title">Profile</div>
+    <div style="margin-bottom:18px">
+      <div style="font-size:11px;color:#666;margin-bottom:3px">USERNAME</div>
+      <div id="profile-username" style="font-size:14px;color:#ddd">—</div>
+    </div>
+    <div style="margin-bottom:18px">
+      <div style="font-size:11px;color:#666;margin-bottom:3px">ROLE</div>
+      <div id="profile-role" style="font-size:14px;color:#ddd">—</div>
+    </div>
+    <div style="margin-bottom:18px" id="profile-email-row">
+      <div style="font-size:11px;color:#666;margin-bottom:3px">EMAIL</div>
+      <div id="profile-email" style="font-size:14px;color:#ddd">—</div>
+    </div>
+
+    <div id="profile-password-section">
+      <div style="border-top:1px solid #1e1e28;margin:18px 0"></div>
+      <div class="panel-title" style="margin-bottom:12px">Change Password</div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">CURRENT PASSWORD</label>
+        <input type="password" id="profile-current-password" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">NEW PASSWORD</label>
+        <input type="password" id="profile-new-password" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">CONFIRM NEW PASSWORD</label>
+        <input type="password" id="profile-confirm-password" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
+      </div>
+      <button onclick="changeOwnPassword()" style="background:#FF333D;color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:12px;font-family:'Manrope',inherit;cursor:pointer;width:100%">Update Password</button>
+      <div id="profile-password-status" style="margin-top:10px;font-size:12px"></div>
+    </div>
+    <div id="profile-bootstrap-note" style="display:none;font-size:12px;color:#666;margin-top:18px;line-height:1.5">
+      This account is managed via server configuration and can't change its password here.
+    </div>
+  </div>
+</div>
 
 <script>
 var DATA = null;
@@ -314,6 +366,10 @@ function showTab(name, btn) {
   }
   if (name === 'admin') {
     loadUsers();
+    loadFlags();
+  }
+  if (name === 'profile') {
+    loadProfile();
   }
 }
 
@@ -367,6 +423,104 @@ function removeUser(id, username) {
   });
 }
 
+// Admin — flags
+function loadFlags() {
+  var listEl = document.getElementById('admin-flags-list');
+  listEl.textContent = 'Loading...';
+  fetch('/api/admin/flags').then(function(r){ return r.json(); }).then(function(d){
+    var flags = d.flags || [];
+    if (!flags.length) { listEl.textContent = 'No open flags.'; return; }
+    listEl.innerHTML = flags.map(function(f){
+      var isPasswordReset = f.type === 'Password Reset';
+      var actionHtml = isPasswordReset
+        ? '<button onclick="generateFlagPassword(\'' + f.id + '\', \'' + escapeHtml(f.username) + '\')" style="background:#FF333D;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-family:inherit;cursor:pointer">Generate New Password</button>'
+        : '';
+      return '<div style="padding:10px 0;border-bottom:1px solid #1e1e28">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px">' +
+        '<div>' +
+        '<span style="color:#ddd;font-weight:600">' + escapeHtml(f.type) + '</span>' +
+        '<span style="color:#666"> — ' + escapeHtml(f.username) + '</span>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px">' + actionHtml +
+        '<button onclick="resolveFlag(\'' + f.id + '\')" style="background:transparent;border:1px solid #2a2a38;border-radius:6px;color:#888;padding:6px 12px;font-size:11px;font-family:inherit;cursor:pointer">Resolve</button>' +
+        '</div>' +
+        '</div>' +
+        (f.description ? '<div style="font-size:11px;color:#999;margin-top:6px">' + escapeHtml(f.description) + '</div>' : '') +
+        '<div id="flag-result-' + f.id + '" style="margin-top:8px;font-size:12px;color:#639922"></div>' +
+        '</div>';
+    }).join('');
+  });
+}
+
+function generateFlagPassword(flagId, username) {
+  fetch('/api/admin/flags/' + flagId + '/generate-password', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({username: username})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { alert(d.error); return; }
+    // Don't refresh the list here — the flag is now resolved server-side and
+    // would disappear before the admin has a chance to copy the password.
+    var resultEl = document.getElementById('flag-result-' + flagId);
+    if (resultEl) {
+      resultEl.innerHTML = 'New temporary password for <strong>' + escapeHtml(d.username) + '</strong>: <strong>' + escapeHtml(d.password) + '</strong> ' + copyBtnHtml(d.password);
+    }
+    var row = resultEl ? resultEl.closest('div[style*="border-bottom"]') : null;
+    if (row) {
+      var buttons = row.querySelectorAll('button');
+      buttons.forEach(function(b){ b.disabled = true; b.style.opacity = '0.5'; });
+    }
+  });
+}
+
+function resolveFlag(flagId) {
+  fetch('/api/admin/flags/' + flagId + '/resolve', {method: 'POST'}).then(function(r){ return r.json(); }).then(function(){
+    loadFlags();
+  });
+}
+
+// Profile
+function loadProfile() {
+  fetch('/api/profile').then(function(r){ return r.json(); }).then(function(d){
+    document.getElementById('profile-username').textContent = d.username || '—';
+    document.getElementById('profile-role').textContent = d.role || '—';
+    if (d.email) {
+      document.getElementById('profile-email-row').style.display = 'block';
+      document.getElementById('profile-email').textContent = d.email;
+    } else {
+      document.getElementById('profile-email-row').style.display = 'none';
+    }
+    if (d.is_bootstrap) {
+      document.getElementById('profile-password-section').style.display = 'none';
+      document.getElementById('profile-bootstrap-note').style.display = 'block';
+    } else {
+      document.getElementById('profile-password-section').style.display = 'block';
+      document.getElementById('profile-bootstrap-note').style.display = 'none';
+    }
+  });
+}
+
+function changeOwnPassword() {
+  var current = document.getElementById('profile-current-password').value;
+  var newPw = document.getElementById('profile-new-password').value;
+  var confirm = document.getElementById('profile-confirm-password').value;
+  var status = document.getElementById('profile-password-status');
+  status.style.color = '#E24B4A';
+  if (!current || !newPw) { status.textContent = 'Fill in all fields.'; return; }
+  fetch('/api/profile/change-password', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({current_password: current, new_password: newPw, confirm: confirm})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { status.textContent = d.error; return; }
+    status.style.color = '#639922';
+    status.textContent = 'Password updated.';
+    document.getElementById('profile-current-password').value = '';
+    document.getElementById('profile-new-password').value = '';
+    document.getElementById('profile-confirm-password').value = '';
+  });
+}
+
 function createUser() {
   var username = document.getElementById('admin-new-username').value.trim();
   var email = document.getElementById('admin-new-email').value.trim();
@@ -380,7 +534,9 @@ function createUser() {
     if (d.error) { alert(d.error); return; }
     var resultEl = document.getElementById('admin-create-result');
     resultEl.style.display = 'block';
-    resultEl.innerHTML = 'Created <strong>' + escapeHtml(d.username) + '</strong><br>Temporary password: <strong>' + escapeHtml(d.password) + '</strong><br><span style="color:#999">Send this to them — they\'ll be asked to set their own password on first login.</span>';
+    resultEl.innerHTML = 'Created <strong>' + escapeHtml(d.username) + '</strong> ' + copyBtnHtml(d.username) + '<br>' +
+      'Temporary password: <strong>' + escapeHtml(d.password) + '</strong> ' + copyBtnHtml(d.password) + '<br>' +
+      '<span style="color:#999">Send this to them — they\'ll be asked to set their own password on first login.</span>';
     document.getElementById('admin-new-username').value = '';
     document.getElementById('admin-new-email').value = '';
     loadUsers();
@@ -410,6 +566,19 @@ function loadVetting() {
 function escapeHtml(s) {
   return (s || '').replace(/[&<>"']/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+function copyBtnHtml(text) {
+  return '<button class="copy-btn" data-copy="' + escapeHtml(text) + '" onclick="copyText(this)" style="background:transparent;border:1px solid #2a2a38;border-radius:5px;color:#888;padding:2px 8px;font-size:10px;font-family:inherit;cursor:pointer">Copy</button>';
+}
+
+function copyText(btnEl) {
+  var text = btnEl.getAttribute('data-copy');
+  navigator.clipboard.writeText(text).then(function(){
+    var original = btnEl.textContent;
+    btnEl.textContent = 'Copied!';
+    setTimeout(function(){ btnEl.textContent = original; }, 1500);
   });
 }
 
@@ -645,20 +814,17 @@ function renderDashboard(d) {
 }
 
 function refreshData() {
-  var btn = document.getElementById('refresh-btn');
-  btn.classList.add('spinning');
-  btn.textContent = '↻ Refreshing…';
+  var btns = document.querySelectorAll('.nav-refresh[onclick="refreshData()"]');
+  btns.forEach(function(btn){ btn.classList.add('spinning'); btn.textContent = '↻ Refreshing…'; });
   fetch('/api/dashboard')
     .then(function(r){ return r.json(); })
     .then(function(d){
       DATA = d;
       renderDashboard(d);
-      btn.classList.remove('spinning');
-      btn.textContent = '↻ Refresh';
+      btns.forEach(function(btn){ btn.classList.remove('spinning'); btn.textContent = '↻ Refresh'; });
     })
     .catch(function(){
-      btn.classList.remove('spinning');
-      btn.textContent = '↻ Refresh';
+      btns.forEach(function(btn){ btn.classList.remove('spinning'); btn.textContent = '↻ Refresh'; });
     });
 }
 

@@ -1,12 +1,11 @@
 import os
 import requests
-import threading
 from datetime import datetime, timezone
 from functools import wraps
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 from notion_settings import get_setting, set_setting
 import auth_store
-import email_sender
+import flags_store
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-prod")
@@ -175,53 +174,78 @@ def set_password():
 def forgot_password():
     message = None
     if request.method == "POST":
-        email = (request.form.get("email") or "").strip()
-        user = auth_store.find_user_by_email(email) if email else None
-        # Always show the same message, whether or not the email matched —
-        # don't reveal which emails have accounts.
-        message = "If that email is associated with an account, a reset link has been sent."
+        username = (request.form.get("username") or "").strip()
+        user = auth_store.find_user(username) if username else None
+        # Always show the same message, whether or not the username matched —
+        # don't reveal which accounts exist.
+        message = "If that account exists, the admin has been notified and will be in touch with new login details."
         if user:
-            token = auth_store.create_reset_token(user["id"])
-            reset_url = request.url_root.rstrip("/") + url_for("reset_password", token=token)
-
-            def _send():
-                try:
-                    email_sender.send_email(
-                        email,
-                        "Reset your Axolt dashboard password",
-                        "Click the link below to set a new password. This link expires in 1 hour.\n\n" + reset_url,
-                    )
-                    print("Reset email sent to", email)
-                except Exception as e:
-                    print("Failed to send reset email:", e)
-
-            threading.Thread(target=_send, daemon=True).start()
+            flags_store.create_flag(username, "Password Reset")
     return render_template("forgot_password.html", message=message)
 
 
-@app.route("/reset-password/<token>", methods=["GET", "POST"])
-def reset_password(token):
-    user = auth_store.find_user_by_reset_token(token)
-    if not user:
-        return render_template("reset_password.html", error="This reset link is invalid or has expired.", invalid=True)
-    error = None
+@app.route("/report-issue", methods=["GET", "POST"])
+@login_required
+def report_issue():
+    message = None
     if request.method == "POST":
-        new_password = request.form.get("password", "")
-        confirm = request.form.get("confirm", "")
-        if len(new_password) < 8:
-            error = "Password must be at least 8 characters."
-        elif new_password != confirm:
-            error = "Passwords don't match."
+        description = (request.form.get("description") or "").strip()
+        if description:
+            flags_store.create_flag(session.get("username"), "Issue Report", description)
+            message = "Thanks — your report has been sent to the admin."
         else:
-            auth_store.set_password(user["id"], new_password, must_reset=False)
-            return redirect(url_for("login"))
-    return render_template("reset_password.html", error=error, invalid=False)
+            message = "Please describe the issue before submitting."
+    return render_template("report_issue.html", message=message)
 
 
 @app.route("/")
 @login_required
 def index():
-    return render_template("index.html", is_admin=(session.get("role") == "Admin"))
+    return render_template(
+        "index.html",
+        is_admin=(session.get("role") == "Admin"),
+        username=session.get("username"),
+        role=session.get("role"),
+    )
+
+
+@app.route("/api/profile")
+@login_required
+def profile_data():
+    user_id = session.get("user_id")
+    email = ""
+    if user_id:
+        user = auth_store.find_user(session.get("username"))
+        if user:
+            email = user.get("email", "")
+    return jsonify({
+        "username": session.get("username"),
+        "role": session.get("role"),
+        "email": email,
+        "is_bootstrap": user_id is None,
+    })
+
+
+@app.route("/api/profile/change-password", methods=["POST"])
+@login_required
+def profile_change_password():
+    if not session.get("user_id"):
+        return jsonify({"error": "This account is managed via server configuration and can't be changed here."}), 400
+    data = request.json or {}
+    current = data.get("current_password", "")
+    new_password = data.get("new_password", "")
+    confirm = data.get("confirm", "")
+
+    user = auth_store.find_user(session["username"])
+    if not user or not auth_store.verify_password(current, user["password_hash"]):
+        return jsonify({"error": "Current password is incorrect."}), 400
+    if len(new_password) < 8:
+        return jsonify({"error": "New password must be at least 8 characters."}), 400
+    if new_password != confirm:
+        return jsonify({"error": "Passwords don't match."}), 400
+
+    auth_store.set_password(user["id"], new_password, must_reset=False)
+    return jsonify({"status": "changed"})
 
 
 @app.route("/api/dashboard")
@@ -450,6 +474,36 @@ def admin_users():
 def admin_delete_user(user_id):
     auth_store.delete_user(user_id)
     return jsonify({"status": "deleted"})
+
+
+@app.route("/api/admin/flags")
+@login_required
+@admin_required
+def admin_flags():
+    return jsonify({"flags": flags_store.list_open_flags()})
+
+
+@app.route("/api/admin/flags/<flag_id>/resolve", methods=["POST"])
+@login_required
+@admin_required
+def admin_resolve_flag(flag_id):
+    flags_store.resolve_flag(flag_id)
+    return jsonify({"status": "resolved"})
+
+
+@app.route("/api/admin/flags/<flag_id>/generate-password", methods=["POST"])
+@login_required
+@admin_required
+def admin_flag_generate_password(flag_id):
+    data = request.json or {}
+    username = (data.get("username") or "").strip()
+    user = auth_store.find_user(username)
+    if not user:
+        return jsonify({"error": "No account found for username: " + username}), 400
+    new_password = auth_store.generate_password()
+    auth_store.set_password(user["id"], new_password, must_reset=True)
+    flags_store.resolve_flag(flag_id)
+    return jsonify({"username": username, "password": new_password})
 
 
 @app.route("/api/scrape/start", methods=["POST"])

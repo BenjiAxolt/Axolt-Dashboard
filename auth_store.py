@@ -1,7 +1,6 @@
 import os
 import secrets
 import string
-from datetime import datetime, timedelta, timezone
 
 import requests
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -44,8 +43,6 @@ def _page_to_user(page):
         "role": _get_prop(page, "Role") or "User",
         "must_reset": bool(_get_prop(page, "Must Reset Password")),
         "email": _get_prop(page, "Email") or "",
-        "reset_token": _get_prop(page, "Reset Token") or "",
-        "reset_token_expires": _get_prop(page, "Reset Token Expires"),
     }
 
 
@@ -57,57 +54,6 @@ def find_user(username):
     )
     results = r.json().get("results", [])
     return _page_to_user(results[0]) if results else None
-
-
-def find_user_by_email(email):
-    r = requests.post(
-        "https://api.notion.com/v1/databases/" + USERS_DB + "/query",
-        headers=NOTION_HEADERS,
-        json={"filter": {"property": "Email", "email": {"equals": email}}},
-    )
-    results = r.json().get("results", [])
-    return _page_to_user(results[0]) if results else None
-
-
-def find_user_by_reset_token(token):
-    r = requests.post(
-        "https://api.notion.com/v1/databases/" + USERS_DB + "/query",
-        headers=NOTION_HEADERS,
-        json={"filter": {"property": "Reset Token", "rich_text": {"equals": token}}},
-    )
-    results = r.json().get("results", [])
-    user = _page_to_user(results[0]) if results else None
-    if not user or not user["reset_token_expires"]:
-        return None
-    expires = datetime.fromisoformat(user["reset_token_expires"].replace("Z", "+00:00"))
-    if datetime.now(timezone.utc) > expires:
-        return None
-    return user
-
-
-def create_reset_token(page_id):
-    token = secrets.token_urlsafe(32)
-    expires = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
-    requests.patch(
-        "https://api.notion.com/v1/pages/" + page_id,
-        headers=NOTION_HEADERS,
-        json={"properties": {
-            "Reset Token": {"rich_text": [{"text": {"content": token}}]},
-            "Reset Token Expires": {"date": {"start": expires}},
-        }},
-    )
-    return token
-
-
-def clear_reset_token(page_id):
-    requests.patch(
-        "https://api.notion.com/v1/pages/" + page_id,
-        headers=NOTION_HEADERS,
-        json={"properties": {
-            "Reset Token": {"rich_text": []},
-            "Reset Token Expires": {"date": None},
-        }},
-    )
 
 
 def list_users():
@@ -159,8 +105,6 @@ def set_password(page_id, new_password, must_reset=False):
         json={"properties": {
             "Password Hash": {"rich_text": [{"text": {"content": generate_password_hash(new_password)}}]},
             "Must Reset Password": {"checkbox": must_reset},
-            "Reset Token": {"rich_text": []},
-            "Reset Token Expires": {"date": None},
         }},
     )
 
