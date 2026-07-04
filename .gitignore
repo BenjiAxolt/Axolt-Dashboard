@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+cookies.json
+debug_output/
+dedup_list.json
+.env
