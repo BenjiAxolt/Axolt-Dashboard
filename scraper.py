@@ -1,4 +1,5 @@
 import json
+import re
 import time
 import random
 import threading
@@ -147,6 +148,44 @@ def parse_followers(text):
         return None
 
 
+AGE_RE = re.compile(r"Aged\s+([\d]+-[\d]+|\d+\+)")
+GENDER_VALUES = ["Female", "Male", "Non-binary"]
+STAT_VALUE_RE = re.compile(r"^[\d.,]+[KM%]?$")
+
+
+def parse_insights_stats(text):
+    """Parses the 'Total followers / Interaction rate / ...' block into a dict."""
+    lines = [l.strip() for l in text.split("\n") if l.strip()]
+    stats = {}
+    i = 0
+    while i < len(lines):
+        if STAT_VALUE_RE.match(lines[i]):
+            value = lines[i]
+            label = lines[i + 1].replace("ⓘ", "").strip() if i + 1 < len(lines) else ""
+            if label:
+                stats[label] = value
+            i += 2
+            if i < len(lines) and lines[i].startswith("Last"):
+                i += 1
+        else:
+            i += 1
+    return stats
+
+
+def parse_profile_meta(body_text):
+    """Extracts age/gender/country from the profile page's full text (Meta's CSS
+    classes are randomly generated per build, so we pattern-match text instead)."""
+    meta = {"age": None, "gender": None, "country": None}
+    age_m = AGE_RE.search(body_text)
+    if age_m:
+        meta["age"] = age_m.group(1)
+    for g in GENDER_VALUES:
+        if re.search(r"(?<![A-Za-z])" + g + r"(?![A-Za-z])", body_text):
+            meta["gender"] = g
+            break
+    return meta
+
+
 def run_scrape(keywords, limit, cookies_json, country, filters=None):
     from playwright.sync_api import sync_playwright
 
@@ -234,37 +273,75 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                     log("SAFETY STOP: navigated outside the Marketplace (" + page.url + "). Aborting run.")
                     break
 
-                # Find creator cards — selectors may need updating based on Meta's current DOM
-                cards = page.query_selector_all("[data-testid='creator-card'], .creator-card, [role='article']")
+                # Creator cards: Meta's CSS classes are randomly generated per build and
+                # useless as selectors — the one stable anchor is this aria-label pattern.
+                cards = page.query_selector_all("a[aria-label^='Open portfolio for ']")
                 log("Found " + str(len(cards)) + " cards for: " + keyword)
 
-                for card in cards:
+                for card_index in range(len(cards)):
                     if added_this_run >= limit:
                         break
 
                     try:
-                        # Extract handle
-                        handle_el = card.query_selector("[data-testid='creator-handle'], .creator-handle")
-                        handle = handle_el.inner_text().strip() if handle_el else ""
-                        if not handle:
-                            # Try to get from link
-                            link_el = card.query_selector("a[href*='instagram.com'], a[href*='facebook.com']")
-                            if link_el:
-                                href = link_el.get_attribute("href") or ""
-                                handle = href.split("/")[-1].split("?")[0]
+                        # Re-query cards each time since clicking may detach old handles
+                        cards = page.query_selector_all("a[aria-label^='Open portfolio for ']")
+                        if card_index >= len(cards):
+                            break
+                        card = cards[card_index]
 
+                        aria_label = card.get_attribute("aria-label") or ""
+                        handle = aria_label.replace("Open portfolio for ", "").strip()
                         handle_key = handle.lower().strip().lstrip("@")
-                        if handle_key in seen:
+                        if not handle_key or handle_key in seen:
                             job["skipped"] += 1
                             continue
 
-                        # Extract name
-                        name_el = card.query_selector("[data-testid='creator-name'], .creator-name, h3, h4")
-                        name = name_el.inner_text().strip() if name_el else handle
+                        profile_url = card.get_attribute("href") or ""
 
-                        # Extract followers
-                        followers_el = card.query_selector("[data-testid='follower-count'], .follower-count")
-                        followers = parse_followers(followers_el.inner_text() if followers_el else "")
+                        # Click into the post-detail modal, then "View profile" for full stats
+                        card.click()
+                        time.sleep(2)
+
+                        view_profile_btn = page.get_by_text("View profile", exact=True)
+                        if view_profile_btn.count() == 0:
+                            log("Could not open profile for " + handle + " — skipping.")
+                            close_btn = page.query_selector("[aria-label='Close'], [aria-label='close']")
+                            if close_btn:
+                                close_btn.click()
+                            job["skipped"] += 1
+                            continue
+
+                        try:
+                            with context.expect_page(timeout=5000) as new_page_info:
+                                view_profile_btn.first.click()
+                            profile_page = new_page_info.value
+                            profile_page.wait_for_load_state()
+                            time.sleep(2)
+                        except Exception:
+                            profile_page = page
+                            time.sleep(2)
+
+                        body_text = profile_page.inner_text("body")
+                        meta = parse_profile_meta(body_text)
+
+                        insights_el = profile_page.query_selector("[data-pagelet='CreatorProfileInsightsOverview']")
+                        stats = parse_insights_stats(insights_el.inner_text()) if insights_el else {}
+                        followers = parse_followers(stats.get("Total followers"))
+                        engagement_rate = None
+                        if stats.get("Interaction rate"):
+                            try:
+                                engagement_rate = float(stats["Interaction rate"].replace("%", ""))
+                            except Exception:
+                                engagement_rate = None
+
+                        if profile_page is not page:
+                            profile_page.close()
+
+                        # Close the post-detail modal on the main page before continuing
+                        close_btn = page.query_selector("[aria-label='Close'], [aria-label='close']")
+                        if close_btn:
+                            close_btn.click()
+                            time.sleep(1)
 
                         if followers_min is not None and (followers is None or followers < followers_min):
                             job["skipped"] += 1
@@ -272,40 +349,22 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                         if followers_max is not None and (followers is None or followers > followers_max):
                             job["skipped"] += 1
                             continue
-
-                        # Extract engagement rate (avg views / followers), if available
-                        views_el = card.query_selector("[data-testid='avg-views'], .avg-views")
-                        avg_views = parse_followers(views_el.inner_text() if views_el else "")
-                        engagement_rate = None
-                        if avg_views and followers:
-                            engagement_rate = round((avg_views / followers) * 100, 2)
-
                         if min_er is not None and (engagement_rate is None or engagement_rate < min_er):
                             job["skipped"] += 1
                             continue
 
-                        # Extract categories
-                        cat_els = card.query_selector_all("[data-testid='creator-category'], .creator-category")
-                        categories = [el.inner_text().strip() for el in cat_els]
-
-                        # Extract bio (used for email discovery and brand-fit vetting)
-                        bio_el = card.query_selector("[data-testid='creator-bio'], .creator-bio")
-                        bio = bio_el.inner_text().strip() if bio_el else ""
-
-                        # Profile URL
-                        profile_link = card.query_selector("a")
-                        profile_url = profile_link.get_attribute("href") if profile_link else ""
-
                         creator = {
-                            "name": name,
-                            "handle": "@" + handle_key if handle_key else handle,
+                            "name": handle,
+                            "handle": "@" + handle_key,
                             "followers": followers,
-                            "categories": categories,
-                            "bio": bio,
+                            "categories": [],
+                            "bio": "",
                             "profile_url": profile_url,
+                            "gender": meta.get("gender"),
+                            "age": meta.get("age"),
                         }
 
-                        log("Vetting: " + name + " (" + handle + ")")
+                        log("Vetting: " + handle)
                         try:
                             vet_result = vet_creator(creator, brand_brief)
                         except Exception as e:
