@@ -117,6 +117,23 @@ def main():
             profile_screenshot_path = os.path.join(OUT_DIR, "profile_screenshot.png")
             page.screenshot(path=profile_screenshot_path, full_page=True)
             print("Saved profile screenshot to:", profile_screenshot_path)
+
+            view_profile_btn = page.get_by_text("View profile", exact=True)
+            if view_profile_btn.count() > 0:
+                print("Clicking 'View profile'...")
+                view_profile_btn.first.click()
+                time.sleep(4)
+
+                full_profile_html_path = os.path.join(OUT_DIR, "full_profile.html")
+                with open(full_profile_html_path, "w") as f:
+                    f.write(page.content())
+                print("Saved full profile page HTML to:", full_profile_html_path)
+
+                full_profile_screenshot_path = os.path.join(OUT_DIR, "full_profile_screenshot.png")
+                page.screenshot(path=full_profile_screenshot_path, full_page=True)
+                print("Saved full profile screenshot to:", full_profile_screenshot_path)
+            else:
+                print("Could not find a 'View profile' button to click.")
         else:
             print("No creator card found to open a profile from.")
 
