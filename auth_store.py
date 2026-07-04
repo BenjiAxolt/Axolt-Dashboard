@@ -106,5 +106,13 @@ def set_password(page_id, new_password, must_reset=False):
     )
 
 
+def delete_user(page_id):
+    requests.patch(
+        "https://api.notion.com/v1/pages/" + page_id,
+        headers=NOTION_HEADERS,
+        json={"archived": True},
+    )
+
+
 def verify_password(password, password_hash):
     return check_password_hash(password_hash, password)

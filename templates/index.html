@@ -349,8 +349,16 @@ function loadUsers() {
       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #1e1e28">' +
         '<div><div style="color:#ddd">' + escapeHtml(u.username) + '</div>' +
         '<div style="font-size:10px;color:#666">' + escapeHtml(u.role) + (u.must_reset ? ' · awaiting first login' : '') + '</div></div>' +
+        '<button onclick="removeUser(\'' + u.id + '\', \'' + escapeHtml(u.username) + '\')" style="background:transparent;border:1px solid #2a2a38;border-radius:6px;color:#b33;padding:5px 10px;font-size:11px;font-family:inherit;cursor:pointer">Remove</button>' +
         '</div>';
     }).join('');
+  });
+}
+
+function removeUser(id, username) {
+  if (!confirm('Remove ' + username + '? They will no longer be able to log in.')) return;
+  fetch('/api/admin/users/' + id, {method: 'DELETE'}).then(function(r){ return r.json(); }).then(function(){
+    loadUsers();
   });
 }
 

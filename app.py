@@ -395,6 +395,14 @@ def admin_users():
     return jsonify({"users": users})
 
 
+@app.route("/api/admin/users/<user_id>", methods=["DELETE"])
+@login_required
+@admin_required
+def admin_delete_user(user_id):
+    auth_store.delete_user(user_id)
+    return jsonify({"status": "deleted"})
+
+
 @app.route("/api/scrape/start", methods=["POST"])
 @login_required
 def scrape_start():
