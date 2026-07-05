@@ -231,7 +231,7 @@
 
 <!-- STUBS -->
 <div class="section" id="tab-scraper">
-  <div class="two-col" style="max-width:1000px">
+  <div class="two-col" style="max-width:1000px;flex:1;min-height:0">
     <div class="panel">
       <div class="panel-title">Meta Creator Marketplace Scraper</div>
 
@@ -286,9 +286,9 @@
       <button id="scrape-btn" onclick="startScrape()" style="background:#FF333D;color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:12px;font-family:inherit;cursor:pointer;width:100%">Start Scrape</button>
     </div>
 
-    <div class="panel">
+    <div class="panel" style="display:flex;flex-direction:column;min-height:0">
       <div class="panel-title">Run Log</div>
-      <div style="display:flex;gap:14px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="display:flex;gap:14px;margin-bottom:12px;flex-wrap:wrap;flex-shrink:0">
         <div style="text-align:center">
           <div id="sc-vetted" style="font-size:20px;font-weight:700;color:#639922">0</div>
           <div style="font-size:11px;color:#555">Vetted</div>
@@ -309,14 +309,14 @@
         <div id="sc-status" style="font-size:11px;color:#555;align-self:center;margin-right:10px"></div>
         <button id="scrape-reset-btn" onclick="resetScrapeLog()" style="background:transparent;border:1px solid #2a2a38;border-radius:6px;color:#888;padding:5px 12px;font-size:11px;font-family:inherit;cursor:pointer">Reset</button>
       </div>
-      <div id="scrape-log" style="background:#0f0f13;border-radius:6px;padding:10px;height:320px;overflow-y:auto;font-size:11px;color:#666;font-family:monospace;line-height:1.6">Waiting to start...</div>
+      <div id="scrape-log" style="background:#0f0f13;border-radius:6px;padding:10px;flex:1;min-height:200px;overflow-y:auto;font-size:11px;color:#666;font-family:monospace;line-height:1.6">Waiting to start...</div>
     </div>
   </div>
 </div>
 <div class="section" id="tab-vetting">
-  <div style="display:flex;gap:8px;margin-bottom:16px">
-    <button id="vet-tab-vetted" class="vet-subtab active" onclick="switchVettingTab('Vetted')" style="border:1px solid #2a2a38;border-radius:6px;padding:7px 16px;font-size:12px;font-family:inherit;cursor:pointer">Vetted</button>
-    <button id="vet-tab-review" class="vet-subtab" onclick="switchVettingTab('Review')" style="border:1px solid #2a2a38;border-radius:6px;padding:7px 16px;font-size:12px;font-family:inherit;cursor:pointer">Review</button>
+  <div class="dash-toggle" style="margin-bottom:16px">
+    <button id="vet-tab-vetted" class="active" onclick="switchVettingTab('Vetted')">Vetted</button>
+    <button id="vet-tab-review" onclick="switchVettingTab('Review')">Review</button>
   </div>
   <div id="vetting-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px"></div>
   <div id="vetting-empty" style="display:none;color:#666;font-size:13px;padding:30px 0;text-align:center">No creators here yet.</div>
