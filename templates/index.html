@@ -53,6 +53,12 @@
   .week-calendar .day { background: #16161f; border: 1px solid #1e1e28; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; }
   .week-calendar .day .day-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
 
+  /* HOME */
+  .home-grid { flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; min-height: 0; }
+  .home-panel { display: flex; flex-direction: column; justify-content: space-between; }
+  .home-link { font-size: 12px; color: #ff8f94; text-decoration: none; }
+  .home-link:hover { text-decoration: underline; }
+
   /* TWO-COL */
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
@@ -142,8 +148,30 @@
 
 <!-- HOME -->
 <div class="section" id="tab-home">
-  <div class="panel-title" style="margin-bottom:14px">Overview</div>
-  <div class="stat-grid" id="home-stats"></div>
+  <div class="home-grid" id="home-grid">
+    <div class="panel home-panel">
+      <div class="panel-title">Main Dashboard</div>
+      <div id="home-main-stats" class="stat-grid-fit" style="margin-bottom:10px"></div>
+      <a href="#" onclick="goToTab('main'); return false" class="home-link">Go to Main Dashboard &rarr;</a>
+    </div>
+    <div class="panel home-panel">
+      <div class="panel-title">Vetting</div>
+      <div id="home-vetting-stats" class="stat-grid-fit" style="margin-bottom:10px"></div>
+      <a href="#" onclick="goToTab('vetting'); return false" class="home-link">Go to Vetting &rarr;</a>
+    </div>
+    <div class="panel home-panel">
+      <div class="panel-title">SV Analytics</div>
+      <div id="home-analytics-stats" class="stat-grid-fit" style="margin-bottom:10px"></div>
+      <a href="#" onclick="goToTab('analytics'); return false" class="home-link">Go to SV Analytics &rarr;</a>
+    </div>
+    {% if is_admin %}
+    <div class="panel home-panel">
+      <div class="panel-title">Flags</div>
+      <div id="home-flags-stats" class="stat-grid-fit" style="margin-bottom:10px"></div>
+      <a href="#" onclick="goToTab('admin'); return false" class="home-link">Go to Admin &rarr;</a>
+    </div>
+    {% endif %}
+  </div>
 </div>
 
 <!-- MAIN DASHBOARD -->
@@ -457,32 +485,46 @@ function switchMainDashboard(which) {
   document.getElementById('main-clinics-view').style.display = which === 'clinics' ? 'flex' : 'none';
 }
 
-function loadHomeSummary() {
-  var el = document.getElementById('home-stats');
-  if (!el) return;
-  var html = '';
-  if (DATA) {
-    html += statCard(DATA.influencers.total, 'Influencers Total') +
-      statCard(DATA.influencers.contacted, 'Influencers Contacted') +
-      statCard(DATA.influencers.delivered, 'Product Delivered') +
-      statCard(DATA.clinics.total, 'Clinics Total') +
-      statCard(DATA.clinics.partner, 'Clinics Partnered');
-  }
-  el.innerHTML = html + '<div class="stat-card"><div class="num" style="color:#666">…</div><div class="lbl">Loading vetting &amp; flags</div></div>';
+function goToTab(name) {
+  var btn = document.querySelector('.nav-btn[onclick*="\'' + name + '\'"]');
+  showTab(name, btn);
+}
 
+function loadHomeSummary() {
+  var mainEl = document.getElementById('home-main-stats');
+  if (!mainEl) return;
+
+  if (DATA) {
+    mainEl.innerHTML =
+      statCard(DATA.influencers.total, 'Influencers') +
+      statCard(DATA.clinics.total, 'Clinics');
+  }
+
+  var vettingEl = document.getElementById('home-vetting-stats');
+  vettingEl.innerHTML = '<div style="color:#666;font-size:12px">Loading...</div>';
   fetch('/api/vetting/summary').then(function(r){ return r.json(); }).then(function(v){
-    var extra = statCard(v['Vetted'] || 0, 'Vetted') + statCard(v['Review'] || 0, 'Needs Review');
-    {% if is_admin %}
-    fetch('/api/admin/flags').then(function(r){ return r.json(); }).then(function(f){
-      extra += statCard((f.flags || []).length, 'Open Flags');
-      el.innerHTML = html + extra;
-    });
-    {% else %}
-    el.innerHTML = html + extra;
-    {% endif %}
+    vettingEl.innerHTML = statCard(v['Vetted'] || 0, 'Vetted') + statCard(v['Review'] || 0, 'Needs Review');
   }).catch(function(){
-    el.innerHTML = html;
+    vettingEl.innerHTML = '<div style="color:#b33;font-size:12px">Failed to load.</div>';
   });
+
+  var analyticsEl = document.getElementById('home-analytics-stats');
+  analyticsEl.innerHTML = '<div style="color:#666;font-size:12px">Loading...</div>';
+  fetch('/api/analytics/summary').then(function(r){ return r.json(); }).then(function(a){
+    analyticsEl.innerHTML = statCard(a.pass_rate + '%', 'Pass Rate') + statCard(a.approval_rate + '%', 'Approval Rate');
+  }).catch(function(){
+    analyticsEl.innerHTML = '<div style="color:#b33;font-size:12px">Failed to load.</div>';
+  });
+
+  {% if is_admin %}
+  var flagsEl = document.getElementById('home-flags-stats');
+  flagsEl.innerHTML = '<div style="color:#666;font-size:12px">Loading...</div>';
+  fetch('/api/admin/flags').then(function(r){ return r.json(); }).then(function(f){
+    flagsEl.innerHTML = statCard((f.flags || []).length, 'Open Flags');
+  }).catch(function(){
+    flagsEl.innerHTML = '<div style="color:#b33;font-size:12px">Failed to load.</div>';
+  });
+  {% endif %}
 }
 
 function loadBrief() {
