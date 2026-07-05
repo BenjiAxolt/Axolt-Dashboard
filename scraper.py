@@ -2,6 +2,7 @@ import copy
 import html
 import json
 import re
+import resource
 import time
 import random
 import threading
@@ -109,6 +110,13 @@ def log(msg):
     job["last_log_time"] = time.time()
     print(msg)
     save_job()
+
+
+def _mem_mb():
+    """Peak resident memory of this process so far, in MB — logged periodically
+    to catch a slow climb toward Render's 512MB limit before it OOM-kills us."""
+    kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return round(kb / 1024, 1)
 
 
 def _watchdog(idle_limit_seconds=120):
@@ -363,11 +371,24 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                     "--disable-background-networking",
                     "--disable-default-apps",
                     "--disable-sync",
+                    "--single-process",
+                    "--disable-features=site-per-process,TranslateUI",
                     "--js-flags=--max-old-space-size=256",
                 ],
             )
             context = browser.new_context(
                 user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            )
+
+            # We only need DOM text/stats, never a visual render — images (profile
+            # photos, post thumbnails) are the single biggest memory cost on a
+            # 512MB instance, so drop them (and fonts/media) at the network level
+            # rather than just hiding them after load.
+            context.route(
+                "**/*",
+                lambda route: route.abort()
+                if route.request.resource_type in ("image", "media", "font")
+                else route.continue_(),
             )
 
             # Load cookies
@@ -392,7 +413,7 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                 if not keyword:
                     continue
 
-                log("Searching: " + keyword)
+                log("Searching: " + keyword + " (mem: " + str(_mem_mb()) + " MB)")
                 page.goto(MARKETPLACE_URL, timeout=30000)
                 time.sleep(random.uniform(3, 5))
 
@@ -442,7 +463,7 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                 # Creator cards: Meta's CSS classes are randomly generated per build and
                 # useless as selectors — the one stable anchor is this aria-label pattern.
                 cards = page.query_selector_all("a[aria-label^='Open portfolio for ']")
-                log("Found " + str(len(cards)) + " cards for: " + keyword)
+                log("Found " + str(len(cards)) + " cards for: " + keyword + " (mem: " + str(_mem_mb()) + " MB)")
 
                 for card_index in range(len(cards)):
                     if added_this_run >= limit:
@@ -569,7 +590,7 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                         else:
                             job["review"] += 1
                             increment_counter("sv_total_review")
-                        log(handle + " -> " + vet_result["outcome"])
+                        log(handle + " -> " + vet_result["outcome"] + " (mem: " + str(_mem_mb()) + " MB)")
 
                         # Human-speed delay between creators
                         time.sleep(random.uniform(2, 4))
