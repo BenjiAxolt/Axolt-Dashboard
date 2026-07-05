@@ -6,6 +6,7 @@ from flask import Flask, render_template, jsonify, request, session, redirect, u
 from notion_settings import get_setting, set_setting, get_counter, increment_counter
 import auth_store
 import templates_store
+import calendar_store
 import flags_store
 import email_sender
 import vetting
@@ -396,6 +397,36 @@ def templates_update(template_id):
 @login_required
 def templates_delete(template_id):
     templates_store.delete_template(template_id)
+    return jsonify({"status": "deleted"})
+
+
+@app.route("/api/calendar/events")
+@login_required
+def calendar_events():
+    start = request.args.get("start")
+    end = request.args.get("end")
+    if not start or not end:
+        return jsonify({"error": "start and end query params required (YYYY-MM-DD)"}), 400
+    return jsonify({"events": calendar_store.list_events(start, end)})
+
+
+@app.route("/api/calendar/events", methods=["POST"])
+@login_required
+def calendar_create_event():
+    data = request.json or {}
+    name = (data.get("name") or "").strip()
+    date_iso = (data.get("date") or "").strip()
+    description = data.get("description") or ""
+    if not name or not date_iso:
+        return jsonify({"error": "name and date are required"}), 400
+    event_id = calendar_store.create_event(name, date_iso, description)
+    return jsonify({"id": event_id})
+
+
+@app.route("/api/calendar/events/<event_id>", methods=["DELETE"])
+@login_required
+def calendar_delete_event(event_id):
+    calendar_store.delete_event(event_id)
     return jsonify({"status": "deleted"})
 
 

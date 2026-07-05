@@ -54,6 +54,18 @@
   .week-calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
   .week-calendar .day { background: #16161f; border: 1px solid #1e1e28; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; }
   .week-calendar .day .day-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .week-calendar .day.today { border-color: #FF333D; }
+  .week-calendar .day .day-date { font-size: 12px; color: #ccc; font-weight: 600; margin-bottom: 6px; }
+  .week-calendar .day .day-events { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 3px; min-height: 0; }
+  .week-calendar .day .event-item { font-size: 10px; color: #ddd; background: #1e1e28; border-radius: 4px; padding: 3px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .week-calendar .day .view-all-btn { font-size: 9px; color: #ff8f94; background: none; border: none; cursor: pointer; text-align: left; padding: 2px 0; margin-top: 2px; font-family: inherit; }
+  .month-day { background: #1e1e28; border: 1px solid #1e1e28; border-radius: 6px; padding: 6px; min-height: 72px; cursor: pointer; font-size: 11px; color: #ccc; display: flex; flex-direction: column; }
+  .month-day:hover { background: #24242f; }
+  .month-day.other-month { opacity: 0.35; }
+  .month-day.today { border-color: #FF333D; }
+  .month-day .month-day-num { font-weight: 600; margin-bottom: 4px; }
+  .month-day .month-day-dot { width: 5px; height: 5px; border-radius: 50%; background: #FF333D; display: inline-block; margin-right: 3px; }
+  .month-weekday-label { font-size: 10px; color: #666; text-transform: uppercase; text-align: center; padding-bottom: 4px; }
 
   /* HOME */
   .home-grid { flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; min-height: 0; }
@@ -168,7 +180,7 @@
 
 <!-- HOME -->
 <div class="section" id="tab-home">
-  <div class="home-grid" id="home-grid">
+  <div class="home-grid" id="home-grid" style="flex:3">
     <div class="panel home-panel">
       <div class="panel-title">Main Dashboard</div>
       <div id="home-main-stats" class="stat-grid-fit" style="margin-bottom:10px"></div>
@@ -191,6 +203,49 @@
       <a href="#" onclick="goToTab('admin'); return false" class="home-link">Go to Admin &rarr;</a>
     </div>
     {% endif %}
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;min-height:0;margin-top:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-shrink:0">
+      <div class="panel-title" style="margin-bottom:0">This Week</div>
+      <button onclick="openFullCalendar()" style="background:#1e1e28;border:1px solid #2a2a38;color:#ccc;border-radius:6px;padding:6px 14px;font-size:11px;font-family:'Manrope',inherit;cursor:pointer">View Full Calendar</button>
+    </div>
+    <div class="week-calendar" id="home-week-calendar" style="flex:1"></div>
+  </div>
+</div>
+
+<!-- FULL CALENDAR MODAL -->
+<div id="calendar-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#16161f;border:1px solid #1e1e28;border-radius:12px;padding:20px;width:90%;max-width:900px;max-height:85vh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:14px">
+        <button onclick="shiftCalendarMonth(-1)" style="background:transparent;border:1px solid #2a2a38;color:#ccc;border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer">&larr;</button>
+        <div id="calendar-modal-title" style="font-family:'Manrope',sans-serif;font-size:16px;font-weight:700;color:#fff;min-width:160px;text-align:center"></div>
+        <button onclick="shiftCalendarMonth(1)" style="background:transparent;border:1px solid #2a2a38;color:#ccc;border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer">&rarr;</button>
+      </div>
+      <button onclick="closeFullCalendar()" style="background:transparent;border:none;color:#888;font-size:20px;cursor:pointer;line-height:1">&times;</button>
+    </div>
+    <div id="calendar-modal-grid" style="flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(7,1fr);gap:6px"></div>
+  </div>
+</div>
+
+<!-- DAY DETAIL / ADD EVENT MODAL -->
+<div id="day-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1100;align-items:center;justify-content:center">
+  <div style="background:#16161f;border:1px solid #1e1e28;border-radius:12px;padding:20px;width:90%;max-width:420px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div id="day-modal-title" style="font-family:'Manrope',sans-serif;font-size:15px;font-weight:700;color:#fff"></div>
+      <button onclick="closeDayModal()" style="background:transparent;border:none;color:#888;font-size:20px;cursor:pointer;line-height:1">&times;</button>
+    </div>
+    <div id="day-modal-events" style="margin-bottom:16px;max-height:200px;overflow-y:auto"></div>
+    <div style="border-top:1px solid #1e1e28;padding-top:14px">
+      <div class="panel-title" style="margin-bottom:10px">Add Event</div>
+      <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">TIME (24HR)</label>
+      <input type="time" id="new-event-time" value="09:00" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit;margin-bottom:10px">
+      <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">EVENT NAME</label>
+      <input type="text" id="new-event-name" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit;margin-bottom:10px">
+      <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">DESCRIPTION (OPTIONAL)</label>
+      <textarea id="new-event-description" rows="2" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit;resize:vertical;margin-bottom:12px"></textarea>
+      <button onclick="submitNewEvent()" style="background:#FF333D;color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:12px;font-family:'Manrope',inherit;cursor:pointer;width:100%">Add Event</button>
+    </div>
   </div>
 </div>
 
@@ -218,15 +273,7 @@
         <div class="seeded-list" id="seeded-list" style="flex:1;overflow-y:auto"></div>
       </div>
     </div>
-    <div class="week-calendar" style="flex-shrink:0;margin-top:16px;height:130px">
-      <div class="day"><div class="day-label">Sun</div></div>
-      <div class="day"><div class="day-label">Mon</div></div>
-      <div class="day"><div class="day-label">Tue</div></div>
-      <div class="day"><div class="day-label">Wed</div></div>
-      <div class="day"><div class="day-label">Thu</div></div>
-      <div class="day"><div class="day-label">Fri</div></div>
-      <div class="day"><div class="day-label">Sat</div></div>
-    </div>
+    <div class="week-calendar" id="main-inf-week-calendar" style="flex-shrink:0;margin-top:16px;height:150px"></div>
   </div>
 
   <div id="main-clinics-view" style="display:none;flex:1;flex-direction:column;min-height:0">
@@ -237,15 +284,7 @@
         <div id="cli-funnel" style="flex:1;overflow-y:auto"></div>
       </div>
     </div>
-    <div class="week-calendar" style="flex-shrink:0;margin-top:16px;height:130px">
-      <div class="day"><div class="day-label">Sun</div></div>
-      <div class="day"><div class="day-label">Mon</div></div>
-      <div class="day"><div class="day-label">Tue</div></div>
-      <div class="day"><div class="day-label">Wed</div></div>
-      <div class="day"><div class="day-label">Thu</div></div>
-      <div class="day"><div class="day-label">Fri</div></div>
-      <div class="day"><div class="day-label">Sat</div></div>
-    </div>
+    <div class="week-calendar" id="main-cli-week-calendar" style="flex-shrink:0;margin-top:16px;height:150px"></div>
   </div>
 </div>
 
@@ -485,6 +524,7 @@ function showTab(name, btn) {
   }
   if (name === 'home') {
     loadHomeSummary();
+    renderWeekCalendar('home-week-calendar');
   }
   if (name === 'outreach') {
     loadOutreach();
@@ -906,6 +946,210 @@ function escapeHtml(s) {
   });
 }
 
+// ===== Calendar =====
+var DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+var selectedDayISO = null;
+var calendarModalDate = new Date();
+
+function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+function toISODate(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+function ordinal(n) {
+  var s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+function getWeekStart(d) {
+  var date = new Date(d);
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() - date.getDay());
+  return date;
+}
+
+function renderWeekCalendar(containerId) {
+  var container = document.getElementById(containerId);
+  if (!container) return;
+  var weekStart = getWeekStart(new Date());
+  var days = [];
+  for (var i = 0; i < 7; i++) {
+    var d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    days.push(d);
+  }
+  var todayISO = toISODate(new Date());
+
+  container.innerHTML = days.map(function(d){
+    var iso = toISODate(d);
+    return '<div class="day' + (iso === todayISO ? ' today' : '') + '">' +
+      '<div class="day-label">' + DAY_NAMES[d.getDay()] + '</div>' +
+      '<div class="day-date">' + ordinal(d.getDate()) + ' ' + MONTH_NAMES[d.getMonth()].slice(0, 3) + '</div>' +
+      '<div class="day-events" id="wk-events-' + containerId + '-' + iso + '"></div>' +
+      '</div>';
+  }).join('');
+
+  fetch('/api/calendar/events?start=' + toISODate(days[0]) + '&end=' + toISODate(days[6]))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var byDate = {};
+      (d.events || []).forEach(function(ev){
+        var key = ev.date.slice(0, 10);
+        (byDate[key] = byDate[key] || []).push(ev);
+      });
+      days.forEach(function(day){
+        var iso = toISODate(day);
+        var evEl = document.getElementById('wk-events-' + containerId + '-' + iso);
+        if (!evEl) return;
+        var evs = (byDate[iso] || []).sort(function(a, b){ return a.date.localeCompare(b.date); });
+        renderDayEventsInline(evEl, evs, iso, 3);
+      });
+    })
+    .catch(function(){});
+}
+
+function renderDayEventsInline(el, events, iso, maxShown) {
+  if (!events.length) { el.innerHTML = ''; return; }
+  var shown = events.slice(0, maxShown);
+  var html = shown.map(function(ev){
+    var time = ev.date.length > 10 ? ev.date.slice(11, 16) : '';
+    return '<div class="event-item" title="' + escapeHtml(ev.name) + '">' + (time ? time + ' ' : '') + escapeHtml(ev.name) + '</div>';
+  }).join('');
+  if (events.length > maxShown) {
+    html += '<button class="view-all-btn" onclick="openDayModal(\'' + iso + '\')">View all (' + events.length + ')</button>';
+  }
+  el.innerHTML = html;
+}
+
+function refreshAllCalendars() {
+  renderWeekCalendar('home-week-calendar');
+  renderWeekCalendar('main-inf-week-calendar');
+  renderWeekCalendar('main-cli-week-calendar');
+  var modal = document.getElementById('calendar-modal-overlay');
+  if (modal && modal.style.display === 'flex') renderMonthGrid();
+}
+
+function openDayModal(iso) {
+  selectedDayISO = iso;
+  var d = new Date(iso + 'T00:00:00');
+  document.getElementById('day-modal-title').textContent = DAY_NAMES[d.getDay()] + ' ' + ordinal(d.getDate()) + ' ' + MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear();
+  document.getElementById('new-event-name').value = '';
+  document.getElementById('new-event-description').value = '';
+  document.getElementById('new-event-time').value = '09:00';
+  document.getElementById('day-modal-overlay').style.display = 'flex';
+  loadDayEvents(iso);
+}
+
+function closeDayModal() {
+  document.getElementById('day-modal-overlay').style.display = 'none';
+}
+
+function loadDayEvents(iso) {
+  var el = document.getElementById('day-modal-events');
+  el.innerHTML = '<div style="color:#666;font-size:12px">Loading...</div>';
+  fetch('/api/calendar/events?start=' + iso + '&end=' + iso).then(function(r){ return r.json(); }).then(function(d){
+    var events = (d.events || []).sort(function(a, b){ return a.date.localeCompare(b.date); });
+    if (!events.length) { el.innerHTML = '<div style="color:#666;font-size:12px">No events yet.</div>'; return; }
+    el.innerHTML = events.map(function(ev){
+      var time = ev.date.length > 10 ? ev.date.slice(11, 16) : '';
+      return '<div style="padding:8px 0;border-bottom:1px solid #1e1e28">' +
+        '<div style="font-size:12px;color:#ddd"><strong>' + (time ? time + ' — ' : '') + escapeHtml(ev.name) + '</strong></div>' +
+        (ev.description ? '<div style="font-size:11px;color:#999;margin-top:2px">' + escapeHtml(ev.description) + '</div>' : '') +
+        '<button onclick="deleteEvent(\'' + ev.id + '\', \'' + iso + '\')" style="font-size:10px;color:#b33;background:none;border:none;cursor:pointer;padding:2px 0;margin-top:3px;font-family:inherit">Remove</button>' +
+        '</div>';
+    }).join('');
+  });
+}
+
+function deleteEvent(id, iso) {
+  fetch('/api/calendar/events/' + id, {method: 'DELETE'}).then(function(){
+    loadDayEvents(iso);
+    refreshAllCalendars();
+  });
+}
+
+function submitNewEvent() {
+  if (!selectedDayISO) return;
+  var time = document.getElementById('new-event-time').value || '09:00';
+  var name = document.getElementById('new-event-name').value.trim();
+  var description = document.getElementById('new-event-description').value.trim();
+  if (!name) { alert('Enter an event name.'); return; }
+  fetch('/api/calendar/events', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: name, date: selectedDayISO + 'T' + time + ':00', description: description})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { alert(d.error); return; }
+    document.getElementById('new-event-name').value = '';
+    document.getElementById('new-event-description').value = '';
+    loadDayEvents(selectedDayISO);
+    refreshAllCalendars();
+  });
+}
+
+function openFullCalendar() {
+  calendarModalDate = new Date();
+  document.getElementById('calendar-modal-overlay').style.display = 'flex';
+  renderMonthGrid();
+}
+
+function closeFullCalendar() {
+  document.getElementById('calendar-modal-overlay').style.display = 'none';
+}
+
+function shiftCalendarMonth(delta) {
+  calendarModalDate.setMonth(calendarModalDate.getMonth() + delta);
+  renderMonthGrid();
+}
+
+function renderMonthGrid() {
+  var year = calendarModalDate.getFullYear();
+  var month = calendarModalDate.getMonth();
+  document.getElementById('calendar-modal-title').textContent = MONTH_NAMES[month] + ' ' + year;
+
+  var firstOfMonth = new Date(year, month, 1);
+  var gridStart = new Date(firstOfMonth);
+  gridStart.setDate(gridStart.getDate() - gridStart.getDay());
+  var lastOfMonth = new Date(year, month + 1, 0);
+  var gridEnd = new Date(lastOfMonth);
+  gridEnd.setDate(gridEnd.getDate() + (6 - gridEnd.getDay()));
+
+  var days = [];
+  var cur = new Date(gridStart);
+  while (cur <= gridEnd) {
+    days.push(new Date(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+
+  var todayISO = toISODate(new Date());
+  var gridEl = document.getElementById('calendar-modal-grid');
+  var headerHtml = DAY_NAMES.map(function(n){ return '<div class="month-weekday-label">' + n + '</div>'; }).join('');
+  var cellsHtml = days.map(function(d){
+    var iso = toISODate(d);
+    var classes = 'month-day' + (d.getMonth() !== month ? ' other-month' : '') + (iso === todayISO ? ' today' : '');
+    return '<div class="' + classes + '" onclick="openDayModal(\'' + iso + '\')">' +
+      '<div class="month-day-num">' + d.getDate() + '</div>' +
+      '<div id="month-dots-' + iso + '"></div>' +
+      '</div>';
+  }).join('');
+  gridEl.innerHTML = headerHtml + cellsHtml;
+
+  fetch('/api/calendar/events?start=' + toISODate(days[0]) + '&end=' + toISODate(days[days.length - 1]))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var counts = {};
+      (d.events || []).forEach(function(ev){
+        var key = ev.date.slice(0, 10);
+        counts[key] = (counts[key] || 0) + 1;
+      });
+      Object.keys(counts).forEach(function(iso){
+        var dotsEl = document.getElementById('month-dots-' + iso);
+        if (dotsEl) {
+          dotsEl.style.fontSize = '10px';
+          dotsEl.style.color = '#999';
+          dotsEl.innerHTML = '<span class="month-day-dot"></span>' + counts[iso] + ' event' + (counts[iso] > 1 ? 's' : '');
+        }
+      });
+    });
+}
+
 function copyBtnHtml(text) {
   return '<button class="copy-btn" data-copy="' + escapeHtml(text) + '" onclick="copyText(this)" style="background:transparent;border:1px solid #2a2a38;border-radius:5px;color:#888;padding:2px 8px;font-size:10px;font-family:inherit;cursor:pointer">Copy</button>';
 }
@@ -1270,6 +1514,8 @@ fetch('/api/dashboard')
     showTab('main', document.querySelector('.nav-btn.active'));
     renderDashboard(d);
     loadHomeSummary();
+    renderWeekCalendar('main-inf-week-calendar');
+    renderWeekCalendar('main-cli-week-calendar');
   })
   .catch(function(e){
     document.getElementById('loading').innerHTML = '<span style="color:#E24B4A">Failed to load data. Check NOTION_TOKEN.</span>';
