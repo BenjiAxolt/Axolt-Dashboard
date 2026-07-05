@@ -69,22 +69,19 @@ def save_job():
 # last run's results before the user has a chance to see them.
 job = load_job()
 
-# Holds the live browser instance while a scrape is running, so a Stop
-# request from a different thread (the Flask request handler) can force it
-# closed — this is what actually unblocks a Playwright call that's hung
-# waiting on an unresponsive browser, since checking a flag can't interrupt
-# a call that's already blocked.
-_active_browser = None
+# Playwright's sync API is not thread-safe — the browser can only be driven
+# from the thread that launched it. So Stop/watchdog requests (which fire
+# from other threads) can't call browser.close() directly; they set this
+# flag, and the scrape loop itself (running on its own thread) checks it
+# between steps and closes its own browser.
+_stop_requested = False
 
 
 def stop_scrape():
-    global _active_browser
-    if _active_browser is not None:
-        log("Stop requested — closing browser session...")
-        try:
-            _active_browser.close()
-        except Exception as e:
-            log("Error while stopping: " + str(e))
+    global _stop_requested
+    if job.get("running"):
+        log("Stop requested — will halt after the current step...")
+        _stop_requested = True
         return True
     return False
 
@@ -116,16 +113,15 @@ def log(msg):
 
 def _watchdog(idle_limit_seconds=120):
     """Runs alongside the scrape — if no log() has fired in idle_limit_seconds
-    (a real hang, not just a slow-but-progressing run), force-close the
-    browser so whatever's blocked gets unblocked with an error instead of
-    hanging forever."""
+    (a real hang, not just a slow-but-progressing run), flag the run to stop
+    so it closes its own browser and ends instead of hanging forever."""
     while job.get("running"):
         time.sleep(15)
         if not job.get("running"):
             break
         last = job.get("last_log_time", time.time())
         if time.time() - last > idle_limit_seconds:
-            log("Watchdog: no progress for " + str(idle_limit_seconds) + "s — forcing the browser closed.")
+            log("Watchdog: no progress for " + str(idle_limit_seconds) + "s — flagging the run to stop.")
             stop_scrape()
             break
 
@@ -327,7 +323,8 @@ def followers_in_buckets(followers, bucket_names):
 def run_scrape(keywords, limit, cookies_json, country, filters=None):
     from playwright.sync_api import sync_playwright
 
-    global _active_browser
+    global _stop_requested
+    _stop_requested = False
     filters = filters or {}
     follower_buckets = filters.get("follower_buckets") or []
     min_er = INTERACTION_RATE_THRESHOLDS.get(filters.get("interaction_rate"))
@@ -369,7 +366,6 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                     "--js-flags=--max-old-space-size=256",
                 ],
             )
-            _active_browser = browser
             context = browser.new_context(
                 user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
             )
@@ -388,6 +384,9 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
 
             for keyword in keywords:
                 if added_this_run >= limit:
+                    break
+                if _stop_requested:
+                    log("Stop requested — ending run.")
                     break
                 keyword = keyword.strip()
                 if not keyword:
@@ -448,6 +447,9 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                 for card_index in range(len(cards)):
                     if added_this_run >= limit:
                         break
+                    if _stop_requested:
+                        log("Stop requested — ending run.")
+                        break
 
                     try:
                         # Re-query cards each time since clicking may detach old handles
@@ -465,8 +467,14 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
 
                         profile_url = card.get_attribute("href") or ""
 
+                        # A modal left over from the previous card can block this
+                        # card's click and stall for the full 30s timeout — clear
+                        # it defensively before clicking in.
+                        page.keyboard.press("Escape")
+                        time.sleep(0.5)
+
                         # Click into the post-detail modal, then "View profile" for full stats
-                        card.click()
+                        card.click(timeout=15000)
                         time.sleep(2)
 
                         view_profile_btn = page.get_by_text("View profile", exact=True)
@@ -475,6 +483,8 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                             close_btn = page.query_selector("[aria-label='Close'], [aria-label='close']")
                             if close_btn:
                                 close_btn.click()
+                            else:
+                                page.keyboard.press("Escape")
                             job["skipped"] += 1
                             continue
 
@@ -510,7 +520,9 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                         close_btn = page.query_selector("[aria-label='Close'], [aria-label='close']")
                         if close_btn:
                             close_btn.click()
-                            time.sleep(1)
+                        else:
+                            page.keyboard.press("Escape")
+                        time.sleep(1)
 
                         if not followers_in_buckets(followers, follower_buckets):
                             log(handle + " skipped — followers " + str(followers) + " outside selected buckets " + str(follower_buckets))
@@ -567,7 +579,7 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                         continue
 
                 # Delay between keyword searches
-                if added_this_run < limit:
+                if added_this_run < limit and not _stop_requested:
                     delay = random.uniform(8, 15)
                     log("Waiting " + str(round(delay, 1)) + "s before next keyword...")
                     time.sleep(delay)
@@ -585,7 +597,6 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
             save_dedup(seen)
         except NameError:
             pass
-        _active_browser = None
         job["running"] = False
         save_job()
 
