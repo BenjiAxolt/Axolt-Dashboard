@@ -430,6 +430,36 @@ def calendar_delete_event(event_id):
     return jsonify({"status": "deleted"})
 
 
+@app.route("/api/influencers/awaiting-delivery")
+@login_required
+def influencers_awaiting_delivery():
+    pages = query_db(INFLUENCER_DB, filter_body={"property": "Stage", "select": {"equals": "Intake Survey Filled"}})
+    return jsonify({"creators": [
+        {"id": p["id"], "name": get_prop(p, "Name") or get_prop(p, "Handle") or "Unknown"} for p in pages
+    ]})
+
+
+@app.route("/api/influencers/<page_id>/mark-delivered", methods=["POST"])
+@login_required
+def influencers_mark_delivered(page_id):
+    r = requests.get("https://api.notion.com/v1/pages/" + page_id, headers=NOTION_HEADERS)
+    page = r.json()
+    name = get_prop(page, "Name") or get_prop(page, "Handle") or "Unknown"
+
+    delivered_date = datetime.now(timezone.utc).date()
+    requests.patch(
+        "https://api.notion.com/v1/pages/" + page_id,
+        headers=NOTION_HEADERS,
+        json={"properties": {
+            "Stage": {"select": {"name": "Product Delivered"}},
+            "Product Delivered": {"date": {"start": delivered_date.isoformat()}},
+        }},
+    )
+    schedule_survey_chain(delivered_date, 14, name)
+    schedule_survey_chain(delivered_date, 30, name)
+    return jsonify({"status": "delivered"})
+
+
 def vetting_page_to_dict(page):
     return {
         "id": page["id"],
@@ -647,6 +677,38 @@ def admin_flag_generate_password(flag_id):
     return jsonify({"username": username, "password": new_password})
 
 
+def add_business_days(start_date, n):
+    d = start_date
+    added = 0
+    while added < n:
+        d += timedelta(days=1)
+        if d.weekday() < 5:
+            added += 1
+    return d
+
+
+def schedule_followups(start_date, label_prefix, name, offsets):
+    """offsets: business-day gaps, each measured from the previous date in the chain."""
+    d = start_date
+    for i, offset in enumerate(offsets, start=1):
+        d = add_business_days(d, offset)
+        calendar_store.create_event(label_prefix + " FU" + str(i) + " — " + name, d.isoformat() + "T09:00:00")
+
+
+def schedule_outreach_chain(name):
+    today = datetime.now(timezone.utc).date()
+    nudge_date = add_business_days(today, 3)
+    calendar_store.create_event("Instagram Nudge — " + name, nudge_date.isoformat() + "T09:00:00")
+    schedule_followups(nudge_date, "Outreach", name, [2, 3, 3])
+
+
+def schedule_survey_chain(delivered_date, days, name):
+    survey_date = delivered_date + timedelta(days=days)
+    label = str(days) + "-Day Survey"
+    calendar_store.create_event(label + " — " + name, survey_date.isoformat() + "T09:00:00")
+    schedule_followups(survey_date, label, name, [3, 3, 3])
+
+
 def outreach_page_to_dict(page):
     return {
         "id": page["id"],
@@ -722,6 +784,7 @@ def outreach_send():
             "Outreach Sent": {"date": {"start": datetime.now(timezone.utc).isoformat()}},
         }},
     )
+    schedule_outreach_chain(creator["name"] or creator["handle"])
     return jsonify({"status": "sent"})
 
 

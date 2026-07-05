@@ -270,6 +270,7 @@
       </div>
       <div class="panel" style="display:flex;flex-direction:column;min-height:0">
         <div class="panel-title">Seeded Influencers</div>
+        <div id="awaiting-delivery-list" style="flex-shrink:0"></div>
         <div class="seeded-list" id="seeded-list" style="flex:1;overflow-y:auto"></div>
       </div>
     </div>
@@ -1295,6 +1296,32 @@ function saveLinks(id, links) {
   localStorage.setItem('links_' + id, JSON.stringify(links));
 }
 
+function loadAwaitingDelivery() {
+  var el = document.getElementById('awaiting-delivery-list');
+  if (!el) return;
+  fetch('/api/influencers/awaiting-delivery').then(function(r){ return r.json(); }).then(function(d){
+    var creators = d.creators || [];
+    if (!creators.length) { el.innerHTML = ''; return; }
+    el.innerHTML = '<div style="font-size:11px;color:#666;margin-bottom:6px">Awaiting Delivery</div>' +
+      creators.map(function(c){
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #1a1a24">' +
+          '<div style="font-size:12px;color:#ddd">' + escapeHtml(c.name) + '</div>' +
+          '<button onclick="markDelivered(\'' + c.id + '\')" style="background:#639922;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-family:inherit;cursor:pointer">Mark Delivered</button>' +
+          '</div>';
+      }).join('') + '<div style="margin-bottom:10px"></div>';
+  }).catch(function(){});
+}
+
+function markDelivered(id) {
+  if (!confirm('Mark this creator as delivered? This schedules their 14-day and 30-day survey follow-ups automatically.')) return;
+  fetch('/api/influencers/' + id + '/mark-delivered', {method: 'POST'}).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { alert(d.error); return; }
+    loadAwaitingDelivery();
+    refreshData();
+    refreshAllCalendars();
+  });
+}
+
 function renderSeeded(seeded) {
   var el = document.getElementById('seeded-list');
   if (!seeded.length) { el.innerHTML = '<div style="color:#444;font-size:12px">No seeded influencers yet</div>'; return; }
@@ -1514,6 +1541,7 @@ fetch('/api/dashboard')
     showTab('main', document.querySelector('.nav-btn.active'));
     renderDashboard(d);
     loadHomeSummary();
+    loadAwaitingDelivery();
     renderWeekCalendar('main-inf-week-calendar');
     renderWeekCalendar('main-cli-week-calendar');
   })
