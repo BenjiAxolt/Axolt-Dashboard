@@ -818,6 +818,16 @@ def scrape_status():
     return jsonify(job)
 
 
+@app.route("/api/scrape/stop", methods=["POST"])
+@login_required
+def scrape_stop():
+    from scraper import job, stop_scrape
+    if not job.get("running"):
+        return jsonify({"error": "No scrape is currently running"}), 400
+    stopped = stop_scrape()
+    return jsonify({"status": "stopping" if stopped else "nothing to stop"})
+
+
 @app.route("/api/scrape/reset", methods=["POST"])
 @login_required
 def scrape_reset():

@@ -69,6 +69,25 @@ def save_job():
 # last run's results before the user has a chance to see them.
 job = load_job()
 
+# Holds the live browser instance while a scrape is running, so a Stop
+# request from a different thread (the Flask request handler) can force it
+# closed — this is what actually unblocks a Playwright call that's hung
+# waiting on an unresponsive browser, since checking a flag can't interrupt
+# a call that's already blocked.
+_active_browser = None
+
+
+def stop_scrape():
+    global _active_browser
+    if _active_browser is not None:
+        log("Stop requested — closing browser session...")
+        try:
+            _active_browser.close()
+        except Exception as e:
+            log("Error while stopping: " + str(e))
+        return True
+    return False
+
 
 def load_dedup():
     if not os.path.exists(DEDUP_FILE):
@@ -90,8 +109,25 @@ def save_dedup(seen):
 
 def log(msg):
     job["log"].append(msg)
+    job["last_log_time"] = time.time()
     print(msg)
     save_job()
+
+
+def _watchdog(idle_limit_seconds=120):
+    """Runs alongside the scrape — if no log() has fired in idle_limit_seconds
+    (a real hang, not just a slow-but-progressing run), force-close the
+    browser so whatever's blocked gets unblocked with an error instead of
+    hanging forever."""
+    while job.get("running"):
+        time.sleep(15)
+        if not job.get("running"):
+            break
+        last = job.get("last_log_time", time.time())
+        if time.time() - last > idle_limit_seconds:
+            log("Watchdog: no progress for " + str(idle_limit_seconds) + "s — forcing the browser closed.")
+            stop_scrape()
+            break
 
 
 def get_existing_handles():
@@ -291,6 +327,7 @@ def followers_in_buckets(followers, bucket_names):
 def run_scrape(keywords, limit, cookies_json, country, filters=None):
     from playwright.sync_api import sync_playwright
 
+    global _active_browser
     filters = filters or {}
     follower_buckets = filters.get("follower_buckets") or []
     min_er = INTERACTION_RATE_THRESHOLDS.get(filters.get("interaction_rate"))
@@ -332,6 +369,7 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                     "--js-flags=--max-old-space-size=256",
                 ],
             )
+            _active_browser = browser
             context = browser.new_context(
                 user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
             )
@@ -547,10 +585,14 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
             save_dedup(seen)
         except NameError:
             pass
+        _active_browser = None
         job["running"] = False
         save_job()
 
 
 def start_scrape_thread(keywords, limit, cookies_json, country, filters=None):
+    job["running"] = True
+    job["last_log_time"] = time.time()
     t = threading.Thread(target=run_scrape, args=(keywords, limit, cookies_json, country, filters), daemon=True)
     t.start()
+    threading.Thread(target=_watchdog, daemon=True).start()

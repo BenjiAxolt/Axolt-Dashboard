@@ -367,6 +367,7 @@
         </div>
         <div style="flex:1"></div>
         <div id="sc-status" style="font-size:11px;color:#555;align-self:center;margin-right:10px"></div>
+        <button id="scrape-stop-btn" onclick="stopScrape()" style="background:transparent;border:1px solid #b33;border-radius:6px;color:#e05a5a;padding:5px 12px;font-size:11px;font-family:inherit;cursor:pointer;display:none;margin-right:6px">Stop</button>
         <button id="scrape-reset-btn" onclick="resetScrapeLog()" style="background:transparent;border:1px solid #2a2a38;border-radius:6px;color:#888;padding:5px 12px;font-size:11px;font-family:inherit;cursor:pointer">Reset</button>
       </div>
       <div id="scrape-log" style="background:#0f0f13;border-radius:6px;padding:10px;flex:1;min-height:200px;overflow-y:auto;font-size:11px;color:#666;font-family:monospace;line-height:1.6">Waiting to start...</div>
@@ -1472,8 +1473,9 @@ function startScrape() {
   if (!keywords) { alert('Enter at least one keyword.'); return; }
   if (!country) { alert('Choose a country.'); return; }
   var btn = document.getElementById('scrape-btn');
-  btn.textContent = 'Running...';
   btn.disabled = true;
+  startRunningDots();
+  document.getElementById('scrape-stop-btn').style.display = 'inline-block';
   fetch('/api/scrape/start', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -1486,10 +1488,41 @@ function startScrape() {
       cookies: cookies
     })
   }).then(function(r){ return r.json(); }).then(function(d){
-    if (d.error) { alert(d.error); btn.textContent = 'Start Scrape'; btn.disabled = false; return; }
+    if (d.error) {
+      alert(d.error);
+      stopRunningDots();
+      btn.textContent = 'Start Scrape';
+      btn.disabled = false;
+      document.getElementById('scrape-stop-btn').style.display = 'none';
+      return;
+    }
     scrapePoller = setInterval(pollScrape, 2000);
   });
 }
+
+var runningDotsInterval = null;
+var runningDotsCount = 0;
+function startRunningDots() {
+  var btn = document.getElementById('scrape-btn');
+  runningDotsCount = 0;
+  clearInterval(runningDotsInterval);
+  runningDotsInterval = setInterval(function(){
+    runningDotsCount = (runningDotsCount % 3) + 1;
+    btn.textContent = 'Running' + '.'.repeat(runningDotsCount);
+  }, 500);
+}
+function stopRunningDots() {
+  clearInterval(runningDotsInterval);
+  runningDotsInterval = null;
+}
+
+function stopScrape() {
+  if (!confirm('Stop the current scrape? Anything already found stays saved.')) return;
+  fetch('/api/scrape/stop', {method: 'POST'}).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { alert(d.error); }
+  });
+}
+
 function pollScrape() {
   fetch('/api/scrape/status').then(function(r){ return r.json(); }).then(function(d){
     document.getElementById('sc-vetted').textContent = d.vetted;
@@ -1502,9 +1535,16 @@ function pollScrape() {
     logEl.scrollTop = logEl.scrollHeight;
     if (!d.running) {
       clearInterval(scrapePoller);
+      stopRunningDots();
       var btn = document.getElementById('scrape-btn');
       btn.textContent = 'Start Scrape';
       btn.disabled = false;
+      document.getElementById('scrape-stop-btn').style.display = 'none';
+    } else if (!runningDotsInterval) {
+      // Page was reloaded mid-run — resume the dots animation.
+      startRunningDots();
+      document.getElementById('scrape-btn').disabled = true;
+      document.getElementById('scrape-stop-btn').style.display = 'inline-block';
     }
   });
 }
