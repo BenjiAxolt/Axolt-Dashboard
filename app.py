@@ -5,6 +5,7 @@ from functools import wraps
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 from notion_settings import get_setting, set_setting, get_counter, increment_counter
 import auth_store
+import templates_store
 import flags_store
 import email_sender
 import vetting
@@ -328,34 +329,74 @@ def dashboard_data():
     })
 
 
-@app.route("/api/settings/brand-brief", methods=["GET", "POST"])
-@login_required
-def brand_brief():
-    if request.method == "POST":
-        data = request.json or {}
-        set_setting("brand_brief", data.get("text", ""))
-        return jsonify({"status": "saved"})
-    return jsonify({"text": get_setting("brand_brief")})
-
-
 DEFAULT_OUTREACH_TEMPLATE = (
-    "Hi {name},\n\n"
-    "I'm reaching out from Axolt — we make a daily brain-nutrition drink and think your "
-    "content on {niche} would be a great fit for our creator program.\n\n"
-    "We'd love to send you our product to try, no strings attached. If you're interested, "
-    "just reply to this email and we'll get you set up.\n\n"
-    "Best,\nThe Axolt Team"
+    "<p>Hi {name},</p>"
+    "<p>I'm reaching out from Axolt — we make a daily brain-nutrition drink and think your "
+    "content on {niche} would be a great fit for our creator program.</p>"
+    "<p>We'd love to send you our product to try, no strings attached. If you're interested, "
+    "just reply to this email and we'll get you set up.</p>"
+    "<p>Best,<br>The Axolt Team</p>"
 )
 
 
-@app.route("/api/settings/outreach-template", methods=["GET", "POST"])
+def ensure_default_templates():
+    """One-time migration: seed Brand Brief / Outreach Email Template as real
+    rows in the new Dashboard Templates database if they don't exist yet,
+    carrying over any content from the old plain-text settings."""
+    if not templates_store.get_template_by_key("brand_brief"):
+        old_text = get_setting("brand_brief", "")
+        content = "<p>" + old_text.replace("\n", "</p><p>") + "</p>" if old_text else ""
+        templates_store.create_template("Brand Brief", content, key="brand_brief")
+    if not templates_store.get_template_by_key("outreach_template"):
+        old_text = get_setting("outreach_template", "")
+        if old_text:
+            content = "<p>" + old_text.replace("\n", "</p><p>") + "</p>"
+        else:
+            content = DEFAULT_OUTREACH_TEMPLATE
+        templates_store.create_template("Outreach Email Template", content, key="outreach_template")
+
+
+@app.route("/api/templates")
 @login_required
-def outreach_template():
-    if request.method == "POST":
-        data = request.json or {}
-        set_setting("outreach_template", data.get("text", ""))
-        return jsonify({"status": "saved"})
-    return jsonify({"text": get_setting("outreach_template", DEFAULT_OUTREACH_TEMPLATE)})
+def templates_list():
+    ensure_default_templates()
+    templates = templates_store.list_templates()
+    return jsonify({"templates": [{"id": t["id"], "name": t["name"]} for t in templates]})
+
+
+@app.route("/api/templates/<template_id>")
+@login_required
+def templates_get(template_id):
+    t = templates_store.get_template(template_id)
+    if not t:
+        return jsonify({"error": "Not found"}), 404
+    return jsonify(t)
+
+
+@app.route("/api/templates", methods=["POST"])
+@login_required
+def templates_create():
+    data = request.json or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "Name is required"}), 400
+    new_id = templates_store.create_template(name, "")
+    return jsonify({"id": new_id, "name": name})
+
+
+@app.route("/api/templates/<template_id>", methods=["PUT"])
+@login_required
+def templates_update(template_id):
+    data = request.json or {}
+    templates_store.update_template(template_id, name=data.get("name"), content=data.get("content"))
+    return jsonify({"status": "saved"})
+
+
+@app.route("/api/templates/<template_id>", methods=["DELETE"])
+@login_required
+def templates_delete(template_id):
+    templates_store.delete_template(template_id)
+    return jsonify({"status": "deleted"})
 
 
 def vetting_page_to_dict(page):
@@ -606,7 +647,9 @@ def outreach_draft(page_id):
     page = r.json()
     creator = outreach_page_to_dict(page)
 
-    template = get_setting("outreach_template", DEFAULT_OUTREACH_TEMPLATE)
+    ensure_default_templates()
+    template_row = templates_store.get_template_by_key("outreach_template")
+    template = templates_store.html_to_text(template_row["content"]) if template_row else DEFAULT_OUTREACH_TEMPLATE
     try:
         draft = vetting.generate_outreach_email(template, creator)
     except Exception as e:

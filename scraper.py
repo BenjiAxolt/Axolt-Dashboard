@@ -8,7 +8,8 @@ import threading
 import requests
 import os
 
-from notion_settings import get_setting, increment_counter
+from notion_settings import increment_counter
+from templates_store import get_template_by_key, html_to_text
 from vetting import vet_creator
 
 NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "")
@@ -312,7 +313,8 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
             str(len(persistent_seen)) + " in permanent dedup list ("
             + str(len(seen)) + " total unique).")
 
-        brand_brief = get_setting("brand_brief")
+        brand_brief_row = get_template_by_key("brand_brief")
+        brand_brief = html_to_text(brand_brief_row["content"]) if brand_brief_row else ""
         if not brand_brief:
             log("Warning: no Brand Brief set in Templates — vetting will judge with no brief context.")
 

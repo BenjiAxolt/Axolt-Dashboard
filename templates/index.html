@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Open+Sans:wght@400;600&family=Newsreader:ital@1&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
@@ -58,6 +60,24 @@
   .home-panel { display: flex; flex-direction: column; justify-content: space-between; }
   .home-link { font-size: 12px; color: #ff8f94; text-decoration: none; }
   .home-link:hover { text-decoration: underline; }
+
+  /* TEMPLATES */
+  .templates-layout { flex: 1; display: flex; gap: 16px; min-height: 0; }
+  .templates-list-col { flex: 0 0 30%; max-width: 320px; display: flex; flex-direction: column; min-height: 0; }
+  .templates-list { flex: 1; overflow-y: auto; margin-top: 10px; }
+  .template-item { padding: 9px 10px; border-radius: 6px; font-size: 12px; color: #aaa; cursor: pointer; margin-bottom: 2px; }
+  .template-item:hover { background: #1e1e28; color: #ccc; }
+  .template-item.active { background: #FF333D; color: #fff; }
+  .templates-editor-col { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .templates-editor-col .panel { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  #template-editor-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  #template-quill { flex: 1; overflow-y: auto; background: #1e1e28; color: #ddd; border-color: #2a2a38 !important; }
+  .ql-toolbar.ql-snow { background: #16161f; border-color: #2a2a38 !important; }
+  .ql-snow .ql-stroke { stroke: #999; }
+  .ql-snow .ql-fill { fill: #999; }
+  .ql-snow .ql-picker { color: #999; }
+  .ql-snow .ql-picker-options { background: #1e1e28; border-color: #2a2a38 !important; }
+  .ql-editor.ql-blank::before { color: #555; }
 
   /* TWO-COL */
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -322,27 +342,24 @@
   <div id="vetting-empty" style="display:none;color:#666;font-size:13px;padding:30px 0;text-align:center">No creators here yet.</div>
 </div>
 <div class="section" id="tab-templates">
-  <div class="panel" style="max-width:700px">
-    <div class="panel-title">Brand Brief</div>
-    <div style="font-size:11px;color:#666;margin-bottom:10px">
-      What Axolt is, what it stands for, and what content alignment looks like. Claude reads this during every vetting run — changes take effect on the next run.
+  <div class="templates-layout">
+    <div class="templates-list-col">
+      <button onclick="createNewTemplate()" style="background:#FF333D;color:#fff;border:none;border-radius:7px;padding:9px 14px;font-size:12px;font-family:'Manrope',inherit;cursor:pointer;width:100%">+ Add New Template</button>
+      <div class="templates-list" id="templates-list"></div>
     </div>
-    <textarea id="brief-text" rows="16" placeholder="Describe the brand, target audience, tone, and what makes a creator's content a fit..." style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:13px;padding:10px 12px;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
-    <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
-      <button id="brief-save-btn" onclick="saveBrief()" style="background:#FF333D;color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:12px;font-family:inherit;cursor:pointer">Save Brief</button>
-      <div id="brief-status" style="font-size:11px;color:#639922"></div>
-    </div>
-  </div>
-
-  <div class="panel" style="max-width:700px;margin-top:16px">
-    <div class="panel-title">Outreach Email Template</div>
-    <div style="font-size:11px;color:#666;margin-bottom:10px">
-      Base template Claude personalizes for each approved creator in the Outreach tab. Use {name} and {niche} as placeholders.
-    </div>
-    <textarea id="outreach-template-text" rows="12" placeholder="Hi {name}, I'm reaching out from Axolt..." style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:13px;padding:10px 12px;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
-    <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
-      <button id="outreach-template-save-btn" onclick="saveOutreachTemplate()" style="background:#FF333D;color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:12px;font-family:inherit;cursor:pointer">Save Template</button>
-      <div id="outreach-template-status" style="font-size:11px;color:#639922"></div>
+    <div class="templates-editor-col">
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-shrink:0">
+          <input type="text" id="template-name-input" placeholder="Template name" style="background:transparent;border:none;color:#fff;font-size:16px;font-family:'Manrope',inherit;font-weight:700;flex:1" onblur="renameCurrentTemplate()">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div id="template-save-status" style="font-size:11px;color:#639922"></div>
+            <button onclick="saveCurrentTemplate()" style="background:#FF333D;color:#fff;border:none;border-radius:7px;padding:8px 18px;font-size:12px;font-family:'Manrope',inherit;cursor:pointer">Save</button>
+          </div>
+        </div>
+        <div id="template-editor-wrap">
+          <div id="template-quill"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -446,7 +463,7 @@
 <script>
 var DATA = null;
 
-var briefLoaded = false;
+var templatesLoaded = false;
 function showTab(name, btn) {
   document.querySelectorAll('.section').forEach(function(s){ s.classList.remove('active'); });
   document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.remove('active'); });
@@ -455,10 +472,9 @@ function showTab(name, btn) {
   if (name === 'vetting') {
     loadVetting();
   }
-  if (name === 'templates' && !briefLoaded) {
-    briefLoaded = true;
-    loadBrief();
-    loadOutreachTemplate();
+  if (name === 'templates' && !templatesLoaded) {
+    templatesLoaded = true;
+    initTemplatesTab();
   }
   if (name === 'admin') {
     loadUsers();
@@ -527,54 +543,100 @@ function loadHomeSummary() {
   {% endif %}
 }
 
-function loadBrief() {
-  fetch('/api/settings/brand-brief').then(function(r){ return r.json(); }).then(function(d){
-    document.getElementById('brief-text').value = d.text || '';
+// Templates
+var templateQuill = null;
+var currentTemplateId = null;
+var templateItems = [];
+
+function initTemplatesTab() {
+  templateQuill = new Quill('#template-quill', {
+    theme: 'snow',
+    modules: {
+      toolbar: [
+        [{ header: [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ color: [] }, { background: [] }],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        ['link', 'blockquote'],
+        [{ size: ['small', false, 'large', 'huge'] }],
+        ['clean']
+      ]
+    }
+  });
+  loadTemplatesList();
+}
+
+function loadTemplatesList() {
+  var listEl = document.getElementById('templates-list');
+  listEl.innerHTML = '<div style="color:#666;font-size:12px;padding:8px">Loading...</div>';
+  fetch('/api/templates').then(function(r){ return r.json(); }).then(function(d){
+    templateItems = d.templates || [];
+    renderTemplatesList();
+    if (templateItems.length) {
+      selectTemplate(templateItems[0].id);
+    }
   });
 }
 
-function saveBrief() {
-  var text = document.getElementById('brief-text').value;
-  var btn = document.getElementById('brief-save-btn');
-  var status = document.getElementById('brief-status');
-  btn.disabled = true;
-  status.textContent = 'Saving...';
-  fetch('/api/settings/brand-brief', {
+function renderTemplatesList() {
+  var listEl = document.getElementById('templates-list');
+  listEl.innerHTML = templateItems.map(function(t){
+    return '<div class="template-item' + (t.id === currentTemplateId ? ' active' : '') + '" onclick="selectTemplate(\'' + t.id + '\')">' + escapeHtml(t.name) + '</div>';
+  }).join('');
+}
+
+function selectTemplate(id) {
+  currentTemplateId = id;
+  renderTemplatesList();
+  document.getElementById('template-name-input').value = '';
+  templateQuill.setText('Loading...');
+  fetch('/api/templates/' + id).then(function(r){ return r.json(); }).then(function(d){
+    document.getElementById('template-name-input').value = d.name || '';
+    templateQuill.root.innerHTML = d.content || '';
+  });
+}
+
+function createNewTemplate() {
+  var name = prompt('Name this template (e.g. "US Outreach", "14-Day Follow-up"):');
+  if (!name) return;
+  fetch('/api/templates', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({text: text})
+    body: JSON.stringify({name: name})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { alert(d.error); return; }
+    templateItems.push({id: d.id, name: d.name});
+    selectTemplate(d.id);
+  });
+}
+
+function renameCurrentTemplate() {
+  if (!currentTemplateId) return;
+  var name = document.getElementById('template-name-input').value.trim();
+  if (!name) return;
+  var item = templateItems.find(function(t){ return t.id === currentTemplateId; });
+  if (item) item.name = name;
+  renderTemplatesList();
+  fetch('/api/templates/' + currentTemplateId, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: name})
+  });
+}
+
+function saveCurrentTemplate() {
+  if (!currentTemplateId) return;
+  var status = document.getElementById('template-save-status');
+  status.textContent = 'Saving...';
+  var content = templateQuill.root.innerHTML;
+  fetch('/api/templates/' + currentTemplateId, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({content: content})
   }).then(function(r){ return r.json(); }).then(function(){
-    btn.disabled = false;
     status.textContent = 'Saved.';
     setTimeout(function(){ status.textContent = ''; }, 2000);
   }).catch(function(){
-    btn.disabled = false;
-    status.textContent = 'Error saving.';
-  });
-}
-
-function loadOutreachTemplate() {
-  fetch('/api/settings/outreach-template').then(function(r){ return r.json(); }).then(function(d){
-    document.getElementById('outreach-template-text').value = d.text || '';
-  });
-}
-
-function saveOutreachTemplate() {
-  var text = document.getElementById('outreach-template-text').value;
-  var btn = document.getElementById('outreach-template-save-btn');
-  var status = document.getElementById('outreach-template-status');
-  btn.disabled = true;
-  status.textContent = 'Saving...';
-  fetch('/api/settings/outreach-template', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({text: text})
-  }).then(function(r){ return r.json(); }).then(function(){
-    btn.disabled = false;
-    status.textContent = 'Saved.';
-    setTimeout(function(){ status.textContent = ''; }, 2000);
-  }).catch(function(){
-    btn.disabled = false;
     status.textContent = 'Error saving.';
   });
 }
