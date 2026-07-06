@@ -380,14 +380,14 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                 user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
             )
 
-            # We only need DOM text/stats, never a visual render — images (profile
-            # photos, post thumbnails) are the single biggest memory cost on a
-            # 512MB instance, so drop them (and fonts/media) at the network level
-            # rather than just hiding them after load.
+            # Block only fonts/video — leaving images alone. Blocking images
+            # broke the marketplace's lazy-loaded card list entirely (0 cards
+            # found), so this page's infinite-scroll rendering appears to
+            # depend on image load events completing.
             context.route(
                 "**/*",
                 lambda route: route.abort()
-                if route.request.resource_type in ("image", "media", "font")
+                if route.request.resource_type in ("media", "font")
                 else route.continue_(),
             )
 
