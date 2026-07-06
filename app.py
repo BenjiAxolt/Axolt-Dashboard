@@ -272,7 +272,7 @@ def dashboard_data():
     S14       = ["14-Day Survey Sent", "14-Day Survey Filled"]
     S30       = ["30-Day Survey Sent", "30-Day Survey Filled"]
 
-    total_inf    = len(inf_pages)
+    total_inf    = len(inf_pages) + 53  # TEMP TEST OFFSET — remove when told to
     contacted    = sum(1 for p in inf_pages if get_prop(p, "Stage") in CONTACTED)
     intake       = sum(1 for p in inf_pages if get_prop(p, "Stage") in INTAKE)
     delivered    = sum(1 for p in inf_pages if get_prop(p, "Stage") in DELIVERED)
