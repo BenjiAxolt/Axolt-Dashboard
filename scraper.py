@@ -2,12 +2,13 @@ import copy
 import html
 import json
 import re
-import resource
 import time
 import random
 import threading
 import requests
 import os
+
+import psutil
 
 from notion_settings import increment_counter
 from templates_store import get_template_by_key, html_to_text
@@ -113,10 +114,22 @@ def log(msg):
 
 
 def _mem_mb():
-    """Peak resident memory of this process so far, in MB — logged periodically
-    to catch a slow climb toward Render's 512MB limit before it OOM-kills us."""
-    kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    return round(kb / 1024, 1)
+    """Current resident memory across this process AND its children (the
+    Playwright driver + Chromium browser + renderer processes), in MB.
+    Chromium runs as separate child processes, so measuring only this
+    Python process (as an earlier version of this did) massively undercounts
+    the real footprint that actually trips Render's 512MB limit."""
+    try:
+        proc = psutil.Process(os.getpid())
+        total = proc.memory_info().rss
+        for child in proc.children(recursive=True):
+            try:
+                total += child.memory_info().rss
+            except psutil.NoSuchProcess:
+                pass
+        return round(total / (1024 * 1024), 1)
+    except Exception:
+        return -1
 
 
 def _watchdog(idle_limit_seconds=120):
