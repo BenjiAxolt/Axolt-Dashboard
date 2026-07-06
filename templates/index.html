@@ -94,6 +94,8 @@
   /* TWO-COL */
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 1200px) { .three-col { grid-template-columns: 1fr; } }
 
   /* PANELS */
   .panel { background: #16161f; border: 1px solid #1e1e28; border-radius: 10px; padding: 18px; }
@@ -291,7 +293,7 @@
 
 <!-- STUBS -->
 <div class="section" id="tab-scraper">
-  <div class="two-col" style="max-width:1000px;flex:1;min-height:0">
+  <div class="three-col" style="flex:1;min-height:0">
     <div class="panel">
       <div class="panel-title">Meta Creator Marketplace Scraper</div>
 
@@ -371,6 +373,62 @@
         <button id="scrape-reset-btn" onclick="resetScrapeLog()" style="background:transparent;border:1px solid #2a2a38;border-radius:6px;color:#888;padding:5px 12px;font-size:11px;font-family:inherit;cursor:pointer">Reset</button>
       </div>
       <div id="scrape-log" style="background:#0f0f13;border-radius:6px;padding:10px;flex:1;min-height:200px;overflow-y:auto;font-size:11px;color:#666;font-family:monospace;line-height:1.6">Waiting to start...</div>
+    </div>
+
+    <div class="panel" style="display:flex;flex-direction:column;min-height:0">
+      <div class="panel-title">Add Creator Manually</div>
+      <div style="font-size:11px;color:#555;margin-bottom:14px">Already vetted this one yourself? Skip the queue — this goes straight into the Influencer Seeding Database.</div>
+
+      <div style="overflow-y:auto;flex:1">
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">HANDLE <span style="color:#444">(required)</span></label>
+          <input type="text" id="manual-handle" placeholder="@handle" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
+        </div>
+
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">NAME</label>
+          <input type="text" id="manual-name" placeholder="Real name (optional)" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
+        </div>
+
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">SOCIAL MEDIA URL</label>
+          <input type="text" id="manual-url" placeholder="https://instagram.com/..." style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
+        </div>
+
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">FOLLOWERS</label>
+          <input type="number" id="manual-followers" placeholder="e.g. 42000" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
+        </div>
+
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">EMAIL</label>
+          <input type="email" id="manual-email" placeholder="optional" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit">
+        </div>
+
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;color:#666;display:block;margin-bottom:6px">CATEGORY <span style="color:#444">(select any)</span></label>
+          <div id="manual-categories" style="display:flex;flex-wrap:wrap;gap:6px">
+            <label class="bucket-chip"><input type="checkbox" value="Biohacker"> Biohacker</label>
+            <label class="bucket-chip"><input type="checkbox" value="Brain Health"> Brain Health</label>
+            <label class="bucket-chip"><input type="checkbox" value="Burnout"> Burnout</label>
+            <label class="bucket-chip"><input type="checkbox" value="Productivity"> Productivity</label>
+            <label class="bucket-chip"><input type="checkbox" value="Longevity"> Longevity</label>
+            <label class="bucket-chip"><input type="checkbox" value="Health & Fitness"> Health & Fitness</label>
+            <label class="bucket-chip"><input type="checkbox" value="Entrepreneurship"> Entrepreneurship</label>
+            <label class="bucket-chip"><input type="checkbox" value="Medical Professional"> Medical Professional</label>
+            <label class="bucket-chip"><input type="checkbox" value="Lifestyle"> Lifestyle</label>
+            <label class="bucket-chip"><input type="checkbox" value="Other"> Other</label>
+          </div>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <label style="font-size:11px;color:#666;display:block;margin-bottom:5px">NOTES</label>
+          <textarea id="manual-notes" rows="3" placeholder="Optional notes" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit;resize:vertical"></textarea>
+        </div>
+      </div>
+
+      <div id="manual-add-msg" style="font-size:11px;margin-bottom:8px"></div>
+      <button id="manual-add-btn" onclick="submitManualAdd()" style="background:#FF333D;color:#fff;border:none;border-radius:7px;padding:9px 20px;font-size:12px;font-family:inherit;cursor:pointer;width:100%">Add Creator</button>
     </div>
   </div>
 </div>
@@ -1520,6 +1578,53 @@ function stopScrape() {
   if (!confirm('Stop the current scrape? Anything already found stays saved.')) return;
   fetch('/api/scrape/stop', {method: 'POST'}).then(function(r){ return r.json(); }).then(function(d){
     if (d.error) { alert(d.error); }
+  });
+}
+
+function submitManualAdd() {
+  var handle = document.getElementById('manual-handle').value.trim();
+  var msgEl = document.getElementById('manual-add-msg');
+  if (!handle) { msgEl.style.color = '#e05a5a'; msgEl.textContent = 'Handle is required.'; return; }
+
+  var categories = Array.prototype.slice.call(
+    document.querySelectorAll('#manual-categories input:checked')
+  ).map(function(el){ return el.value; });
+
+  var btn = document.getElementById('manual-add-btn');
+  btn.disabled = true;
+  btn.textContent = 'Adding...';
+  msgEl.textContent = '';
+
+  fetch('/api/manual-add', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      handle: handle,
+      name: document.getElementById('manual-name').value.trim(),
+      social_url: document.getElementById('manual-url').value.trim(),
+      followers: document.getElementById('manual-followers').value,
+      email: document.getElementById('manual-email').value.trim(),
+      categories: categories,
+      notes: document.getElementById('manual-notes').value.trim()
+    })
+  }).then(function(r){ return r.json(); }).then(function(d){
+    btn.disabled = false;
+    btn.textContent = 'Add Creator';
+    if (d.error) { msgEl.style.color = '#e05a5a'; msgEl.textContent = d.error; return; }
+    msgEl.style.color = '#639922';
+    msgEl.textContent = d.handle + ' added to the Influencer Seeding Database.';
+    document.getElementById('manual-handle').value = '';
+    document.getElementById('manual-name').value = '';
+    document.getElementById('manual-url').value = '';
+    document.getElementById('manual-followers').value = '';
+    document.getElementById('manual-email').value = '';
+    document.getElementById('manual-notes').value = '';
+    document.querySelectorAll('#manual-categories input:checked').forEach(function(el){ el.checked = false; });
+  }).catch(function(){
+    btn.disabled = false;
+    btn.textContent = 'Add Creator';
+    msgEl.style.color = '#e05a5a';
+    msgEl.textContent = 'Request failed — check your connection.';
   });
 }
 

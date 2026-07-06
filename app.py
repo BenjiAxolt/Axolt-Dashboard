@@ -828,6 +828,58 @@ def scrape_stop():
     return jsonify({"status": "stopping" if stopped else "nothing to stop"})
 
 
+@app.route("/api/manual-add", methods=["POST"])
+@login_required
+def manual_add_creator():
+    from scraper import get_existing_handles, load_dedup, save_dedup
+
+    data = request.json or {}
+    handle_key = (data.get("handle") or "").strip().lower().lstrip("@")
+    if not handle_key:
+        return jsonify({"error": "Handle is required"}), 400
+
+    existing = get_existing_handles() | load_dedup()
+    if handle_key in existing:
+        return jsonify({"error": "@" + handle_key + " is already in the Influencer database or dedup list"}), 400
+
+    name = (data.get("name") or "").strip()
+    social_url = (data.get("social_url") or "").strip()
+    email = (data.get("email") or "").strip()
+    categories = data.get("categories") or []
+    notes = (data.get("notes") or "").strip()
+
+    props = {
+        "Name": {"title": [{"text": {"content": name or ("@" + handle_key)}}]},
+        "Stage": {"select": {"name": "Lead"}},
+        "Handle": {"rich_text": [{"text": {"content": "@" + handle_key}}]},
+    }
+    try:
+        followers = int(data.get("followers"))
+        props["Followers"] = {"number": followers}
+    except (TypeError, ValueError):
+        pass
+    if email:
+        props["Email"] = {"email": email}
+    if social_url:
+        props["Social Media"] = {"url": social_url}
+    if categories:
+        props["Category"] = {"multi_select": [{"name": c} for c in categories[:5]]}
+    if notes:
+        props["Description"] = {"rich_text": [{"text": {"content": notes[:2000]}}]}
+
+    requests.post(
+        "https://api.notion.com/v1/pages",
+        headers=NOTION_HEADERS,
+        json={"parent": {"database_id": INFLUENCER_DB}, "properties": props},
+    )
+
+    seen = load_dedup()
+    seen.add(handle_key)
+    save_dedup(seen)
+
+    return jsonify({"status": "added", "handle": "@" + handle_key})
+
+
 @app.route("/api/scrape/reset", methods=["POST"])
 @login_required
 def scrape_reset():
