@@ -1393,10 +1393,53 @@ function renderSeeded(seeded) {
         '<span class="stage-pill" style="color:' + s.sc + ';background:' + s.sb + '">' + s.stage + '</span>' +
       '</div>' +
       (s.category || s.delivered ? '<div class="seeded-meta">' + [s.category, s.delivered ? 'Delivered ' + s.delivered : ''].filter(Boolean).join(' · ') + '</div>' : '') +
+      '<div class="date-edit-row" style="display:flex;gap:14px;align-items:center;margin:6px 0;font-size:11px;color:#666">' +
+        '<span>Delivered: <input type="date" id="delv_' + s.id + '" value="' + (s.delivered_raw || '') + '" style="background:#1e1e28;border:1px solid #2a2a38;border-radius:5px;color:#ddd;font-size:11px;padding:3px 6px;font-family:inherit"></span>' +
+        '<button class="save-btn" onclick="saveDeliveredDate(\'' + s.page_id + '\',\'' + s.id + '\')">Save</button>' +
+        '<span>Content posted: <input type="date" id="cont_' + s.id + '" value="' + (s.content_date_raw || '') + '" style="background:#1e1e28;border:1px solid #2a2a38;border-radius:5px;color:#ddd;font-size:11px;padding:3px 6px;font-family:inherit"></span>' +
+        '<button class="save-btn" onclick="saveContentDate(\'' + s.page_id + '\',\'' + s.id + '\')">Save</button>' +
+        '<span id="datemsg_' + s.id + '"></span>' +
+      '</div>' +
       '<div class="content-section" id="cs_' + s.id + '"></div>' +
     '</div>';
   }).join('');
   seeded.forEach(function(s) { renderLinks(s.id); });
+}
+
+function saveDeliveredDate(pageId, id) {
+  var date = document.getElementById('delv_' + id).value;
+  var msg = document.getElementById('datemsg_' + id);
+  if (!date) { msg.style.color = '#e05a5a'; msg.textContent = 'Pick a date first.'; return; }
+  fetch('/api/influencers/' + pageId + '/delivered-date', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({date: date})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { msg.style.color = '#e05a5a'; msg.textContent = d.error; return; }
+    msg.style.color = '#639922';
+    msg.textContent = 'Saved — survey follow-ups scheduled.';
+  }).catch(function(){
+    msg.style.color = '#e05a5a';
+    msg.textContent = 'Request failed.';
+  });
+}
+
+function saveContentDate(pageId, id) {
+  var date = document.getElementById('cont_' + id).value;
+  var msg = document.getElementById('datemsg_' + id);
+  if (!date) { msg.style.color = '#e05a5a'; msg.textContent = 'Pick a date first.'; return; }
+  fetch('/api/influencers/' + pageId + '/content-date', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({date: date})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { msg.style.color = '#e05a5a'; msg.textContent = d.error; return; }
+    msg.style.color = '#639922';
+    msg.textContent = 'Saved.';
+  }).catch(function(){
+    msg.style.color = '#e05a5a';
+    msg.textContent = 'Request failed.';
+  });
 }
 
 function renderLinks(id) {

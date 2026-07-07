@@ -292,11 +292,14 @@ def dashboard_data():
                 sc, sb = "#639922", "rgba(99,153,34,0.15)"
             seeded.append({
                 "id": (get_prop(p, "Name") or "unknown").lower().replace(" ", "_").replace("'", ""),
+                "page_id": p["id"],
                 "name": get_prop(p, "Name") or "Unknown",
                 "handle": get_prop(p, "Handle") or "",
                 "followers": fmt_followers(get_prop(p, "Followers")),
                 "category": ", ".join(get_prop(p, "Category") or []),
                 "delivered": fmt_date(get_prop(p, "Product Delivered")),
+                "delivered_raw": get_prop(p, "Product Delivered"),
+                "content_date_raw": get_prop(p, "Content Date"),
                 "stage": stage,
                 "sc": sc,
                 "sb": sb,
@@ -458,6 +461,61 @@ def influencers_mark_delivered(page_id):
     schedule_survey_chain(delivered_date, 14, name)
     schedule_survey_chain(delivered_date, 30, name)
     return jsonify({"status": "delivered"})
+
+
+@app.route("/api/influencers/<page_id>/delivered-date", methods=["POST"])
+@login_required
+def influencers_set_delivered_date(page_id):
+    """Set (or backdate) the Product Delivered date on a creator already at
+    that stage — for creators marked delivered outside the normal Mark
+    Delivered button (e.g. edited directly in Notion), which never got a
+    date stamped or their 14/30-day survey chain scheduled."""
+    data = request.json or {}
+    date_str = (data.get("date") or "").strip()
+    if not date_str:
+        return jsonify({"error": "Date is required"}), 400
+    try:
+        delivered_date = datetime.fromisoformat(date_str).date()
+    except ValueError:
+        return jsonify({"error": "Invalid date"}), 400
+
+    r = requests.get("https://api.notion.com/v1/pages/" + page_id, headers=NOTION_HEADERS)
+    page = r.json()
+    name = get_prop(page, "Name") or get_prop(page, "Handle") or "Unknown"
+
+    requests.patch(
+        "https://api.notion.com/v1/pages/" + page_id,
+        headers=NOTION_HEADERS,
+        json={"properties": {
+            "Product Delivered": {"date": {"start": delivered_date.isoformat()}},
+        }},
+    )
+    schedule_survey_chain(delivered_date, 14, name)
+    schedule_survey_chain(delivered_date, 30, name)
+    return jsonify({"status": "updated", "date": delivered_date.isoformat()})
+
+
+@app.route("/api/influencers/<page_id>/content-date", methods=["POST"])
+@login_required
+def influencers_set_content_date(page_id):
+    """Record the date a creator's sponsored content actually went live."""
+    data = request.json or {}
+    date_str = (data.get("date") or "").strip()
+    if not date_str:
+        return jsonify({"error": "Date is required"}), 400
+    try:
+        content_date = datetime.fromisoformat(date_str).date()
+    except ValueError:
+        return jsonify({"error": "Invalid date"}), 400
+
+    requests.patch(
+        "https://api.notion.com/v1/pages/" + page_id,
+        headers=NOTION_HEADERS,
+        json={"properties": {
+            "Content Date": {"date": {"start": content_date.isoformat()}},
+        }},
+    )
+    return jsonify({"status": "updated", "date": content_date.isoformat()})
 
 
 def vetting_page_to_dict(page):
