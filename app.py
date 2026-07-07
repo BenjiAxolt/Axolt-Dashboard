@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import requests
 from datetime import datetime, timedelta, timezone
 from functools import wraps
@@ -438,6 +439,26 @@ def calendar_delete_event(event_id):
     return jsonify({"status": "deleted"})
 
 
+@app.route("/api/calendar/events/<event_id>/mark-sent", methods=["POST"])
+@login_required
+def calendar_mark_sent(event_id):
+    """Called when a survey (or outreach nudge) event is actually sent out,
+    not just due — this is what schedules its FU1/FU2/FU3 reminders, so the
+    calendar only fills up with follow-ups for things that really happened."""
+    event = calendar_store.get_event(event_id)
+    if not event:
+        return jsonify({"error": "Event not found"}), 404
+
+    match = re.match(r"^(.+?) — (.+)$", event["name"])
+    if not match:
+        return jsonify({"error": "Could not parse this event's label/name"}), 400
+    label, name = match.group(1), match.group(2)
+
+    today = datetime.now(timezone.utc).date()
+    schedule_followups(today, label, name, [3, 3, 3])
+    return jsonify({"status": "sent", "label": label, "name": name})
+
+
 @app.route("/api/influencers/awaiting-delivery")
 @login_required
 def influencers_awaiting_delivery():
@@ -778,10 +799,13 @@ def schedule_outreach_chain(name):
 
 
 def schedule_survey_chain(delivered_date, days, name):
+    """Only schedules the initial survey-send event. The FU1/FU2/FU3
+    reminders aren't scheduled here — they'd sit on the calendar for two
+    weeks before they're relevant. They get scheduled later, the day the
+    survey is actually sent, via /api/calendar/events/<id>/mark-sent."""
     survey_date = delivered_date + timedelta(days=days)
     label = str(days) + "-Day Survey"
     calendar_store.create_event(label + " — " + name, survey_date.isoformat() + "T09:00:00")
-    schedule_followups(survey_date, label, name, [3, 3, 3])
 
 
 def outreach_page_to_dict(page):

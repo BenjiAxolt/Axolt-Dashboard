@@ -62,6 +62,13 @@ def list_events(start_iso, end_iso):
     return events
 
 
+def get_event(event_id):
+    r = requests.get("https://api.notion.com/v1/pages/" + event_id, headers=NOTION_HEADERS)
+    if r.status_code != 200:
+        return None
+    return _page_to_event(r.json())
+
+
 def create_event(name, date_iso, description=""):
     r = requests.post(
         "https://api.notion.com/v1/pages",

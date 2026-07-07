@@ -1112,7 +1112,10 @@ function loadDayEvents(iso) {
       return '<div style="padding:8px 0;border-bottom:1px solid #1e1e28">' +
         '<div style="font-size:12px;color:#ddd"><strong>' + (time ? time + ' — ' : '') + escapeHtml(ev.name) + '</strong></div>' +
         (ev.description ? '<div style="font-size:11px;color:#999;margin-top:2px">' + escapeHtml(ev.description) + '</div>' : '') +
-        '<button onclick="deleteEvent(\'' + ev.id + '\', \'' + iso + '\')" style="font-size:10px;color:#b33;background:none;border:none;cursor:pointer;padding:2px 0;margin-top:3px;font-family:inherit">Remove</button>' +
+        '<div style="margin-top:3px">' +
+        '<button onclick="markEventSent(\'' + ev.id + '\', \'' + iso + '\')" style="font-size:10px;color:#639922;background:none;border:none;cursor:pointer;padding:2px 8px 2px 0;font-family:inherit">Mark Sent (schedules follow-ups)</button>' +
+        '<button onclick="deleteEvent(\'' + ev.id + '\', \'' + iso + '\')" style="font-size:10px;color:#b33;background:none;border:none;cursor:pointer;padding:2px 0;font-family:inherit">Remove</button>' +
+        '</div>' +
         '</div>';
     }).join('');
   });
@@ -1120,6 +1123,15 @@ function loadDayEvents(iso) {
 
 function deleteEvent(id, iso) {
   fetch('/api/calendar/events/' + id, {method: 'DELETE'}).then(function(){
+    loadDayEvents(iso);
+    refreshAllCalendars();
+  });
+}
+
+function markEventSent(id, iso) {
+  if (!confirm('Mark this as sent? This schedules its FU1/FU2/FU3 follow-up reminders starting today.')) return;
+  fetch('/api/calendar/events/' + id + '/mark-sent', {method: 'POST'}).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { alert(d.error); return; }
     loadDayEvents(iso);
     refreshAllCalendars();
   });
@@ -1379,7 +1391,7 @@ function loadAwaitingDelivery() {
 }
 
 function markDelivered(id) {
-  if (!confirm('Mark this creator as delivered? This schedules their 14-day and 30-day survey follow-ups automatically.')) return;
+  if (!confirm('Mark this creator as delivered? This schedules their 14-day and 30-day survey send dates.')) return;
   fetch('/api/influencers/' + id + '/mark-delivered', {method: 'POST'}).then(function(r){ return r.json(); }).then(function(d){
     if (d.error) { alert(d.error); return; }
     loadAwaitingDelivery();
@@ -1399,16 +1411,28 @@ function renderSeeded(seeded) {
         (s.followers ? '<div class="seeded-followers">' + s.followers + '</div>' : '') +
         '<span class="stage-pill" style="color:' + s.sc + ';background:' + s.sb + '">' + s.stage + '</span>' +
       '</div>' +
-      (s.category || s.delivered ? '<div class="seeded-meta">' + [s.category, s.delivered ? 'Delivered ' + s.delivered : ''].filter(Boolean).join(' · ') + '</div>' : '') +
-      '<div class="date-edit-row" style="display:flex;gap:14px;align-items:center;margin:6px 0;font-size:11px;color:#666">' +
-        '<span>Delivered: <input type="date" id="delv_' + s.id + '" value="' + (s.delivered_raw || '') + '" style="background:#1e1e28;border:1px solid #2a2a38;border-radius:5px;color:#ddd;font-size:11px;padding:3px 6px;font-family:inherit"></span>' +
-        '<button class="save-btn" onclick="saveDeliveredDate(\'' + s.page_id + '\',\'' + s.id + '\')">Save</button>' +
+      (s.category ? '<div class="seeded-meta">' + s.category + '</div>' : '') +
+      '<div style="display:flex;align-items:center;gap:6px;margin:6px 0;font-size:11px;color:#666">' +
+        '<span id="delvdisplay_' + s.id + '">Delivered: ' + (s.delivered || 'Not set') + '</span>' +
+        '<button onclick="showEditDelivered(\'' + s.id + '\')" title="Edit delivery date" style="background:none;border:none;color:#888;cursor:pointer;font-size:12px;padding:0 4px">✎</button>' +
         '<span id="datemsg_' + s.id + '"></span>' +
+      '</div>' +
+      '<div class="add-content-row" id="delvedit_' + s.id + '" style="display:none">' +
+        '<input type="date" id="delv_' + s.id + '" value="' + (s.delivered_raw || '') + '">' +
+        '<button class="save-btn" onclick="saveDeliveredDate(\'' + s.page_id + '\',\'' + s.id + '\')">Save</button>' +
+        '<button class="cancel-btn" onclick="hideEditDelivered(\'' + s.id + '\')">Cancel</button>' +
       '</div>' +
       '<div class="content-section" id="cs_' + s.id + '" data-page-id="' + s.page_id + '"></div>' +
     '</div>';
   }).join('');
   seeded.forEach(function(s) { renderLinks(s.id, s.page_id, s.content_links || []); });
+}
+
+function showEditDelivered(id) {
+  document.getElementById('delvedit_' + id).style.display = 'flex';
+}
+function hideEditDelivered(id) {
+  document.getElementById('delvedit_' + id).style.display = 'none';
 }
 
 function saveDeliveredDate(pageId, id) {
@@ -1421,8 +1445,11 @@ function saveDeliveredDate(pageId, id) {
     body: JSON.stringify({date: date})
   }).then(function(r){ return r.json(); }).then(function(d){
     if (d.error) { msg.style.color = '#e05a5a'; msg.textContent = d.error; return; }
+    document.getElementById('delvdisplay_' + id).textContent = 'Delivered: ' + date;
+    hideEditDelivered(id);
     msg.style.color = '#639922';
-    msg.textContent = 'Saved — survey follow-ups scheduled.';
+    msg.textContent = 'Saved — survey dates scheduled.';
+    refreshAllCalendars();
   }).catch(function(){
     msg.style.color = '#e05a5a';
     msg.textContent = 'Request failed.';
