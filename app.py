@@ -1,3 +1,4 @@
+import json
 import os
 import requests
 from datetime import datetime, timedelta, timezone
@@ -290,6 +291,10 @@ def dashboard_data():
                 sc, sb = "#7F77DD", "rgba(127,119,221,0.15)"
             else:
                 sc, sb = "#639922", "rgba(99,153,34,0.15)"
+            try:
+                content_links = json.loads(get_prop(p, "Content Links") or "[]")
+            except (ValueError, TypeError):
+                content_links = []
             seeded.append({
                 "id": (get_prop(p, "Name") or "unknown").lower().replace(" ", "_").replace("'", ""),
                 "page_id": p["id"],
@@ -299,7 +304,7 @@ def dashboard_data():
                 "category": ", ".join(get_prop(p, "Category") or []),
                 "delivered": fmt_date(get_prop(p, "Product Delivered")),
                 "delivered_raw": get_prop(p, "Product Delivered"),
-                "content_date_raw": get_prop(p, "Content Date"),
+                "content_links": content_links,
                 "stage": stage,
                 "sc": sc,
                 "sb": sb,
@@ -495,27 +500,39 @@ def influencers_set_delivered_date(page_id):
     return jsonify({"status": "updated", "date": delivered_date.isoformat()})
 
 
-@app.route("/api/influencers/<page_id>/content-date", methods=["POST"])
+@app.route("/api/influencers/<page_id>/content-links", methods=["POST"])
 @login_required
-def influencers_set_content_date(page_id):
-    """Record the date a creator's sponsored content actually went live."""
+def influencers_set_content_links(page_id):
+    """Store the full list of content links for a creator, each with its own
+    posted date — a creator who posts multiple times needs a date per post,
+    not one date for the whole creator. Replaces the whole list each save
+    (simpler than a per-item add/delete API, and the list is always small)."""
     data = request.json or {}
-    date_str = (data.get("date") or "").strip()
-    if not date_str:
-        return jsonify({"error": "Date is required"}), 400
-    try:
-        content_date = datetime.fromisoformat(date_str).date()
-    except ValueError:
-        return jsonify({"error": "Invalid date"}), 400
+    links = data.get("links")
+    if not isinstance(links, list):
+        return jsonify({"error": "links must be a list"}), 400
+
+    cleaned = []
+    for item in links:
+        url = (item.get("url") or "").strip()
+        date_str = (item.get("date") or "").strip()
+        if not url:
+            continue
+        if date_str:
+            try:
+                datetime.fromisoformat(date_str)
+            except ValueError:
+                return jsonify({"error": "Invalid date: " + date_str}), 400
+        cleaned.append({"url": url, "date": date_str})
 
     requests.patch(
         "https://api.notion.com/v1/pages/" + page_id,
         headers=NOTION_HEADERS,
         json={"properties": {
-            "Content Date": {"date": {"start": content_date.isoformat()}},
+            "Content Links": {"rich_text": [{"text": {"content": json.dumps(cleaned)[:2000]}}]},
         }},
     )
-    return jsonify({"status": "updated", "date": content_date.isoformat()})
+    return jsonify({"status": "updated", "links": cleaned})
 
 
 def vetting_page_to_dict(page):

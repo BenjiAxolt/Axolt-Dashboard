@@ -1348,11 +1348,18 @@ function statCard(num, lbl) {
   return '<div class="stat-card"><div class="num">' + num + '</div><div class="lbl">' + lbl + '</div></div>';
 }
 
-function getLinks(id) {
-  try { return JSON.parse(localStorage.getItem('links_' + id) || '[]'); } catch(e) { return []; }
-}
-function saveLinks(id, links) {
-  localStorage.setItem('links_' + id, JSON.stringify(links));
+var contentLinksCache = {};
+
+function saveLinksToServer(id, pageId, links) {
+  contentLinksCache[id] = links;
+  fetch('/api/influencers/' + pageId + '/content-links', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({links: links})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { alert(d.error); return; }
+    renderLinks(id, pageId, d.links);
+  });
 }
 
 function loadAwaitingDelivery() {
@@ -1396,14 +1403,12 @@ function renderSeeded(seeded) {
       '<div class="date-edit-row" style="display:flex;gap:14px;align-items:center;margin:6px 0;font-size:11px;color:#666">' +
         '<span>Delivered: <input type="date" id="delv_' + s.id + '" value="' + (s.delivered_raw || '') + '" style="background:#1e1e28;border:1px solid #2a2a38;border-radius:5px;color:#ddd;font-size:11px;padding:3px 6px;font-family:inherit"></span>' +
         '<button class="save-btn" onclick="saveDeliveredDate(\'' + s.page_id + '\',\'' + s.id + '\')">Save</button>' +
-        '<span>Content posted: <input type="date" id="cont_' + s.id + '" value="' + (s.content_date_raw || '') + '" style="background:#1e1e28;border:1px solid #2a2a38;border-radius:5px;color:#ddd;font-size:11px;padding:3px 6px;font-family:inherit"></span>' +
-        '<button class="save-btn" onclick="saveContentDate(\'' + s.page_id + '\',\'' + s.id + '\')">Save</button>' +
         '<span id="datemsg_' + s.id + '"></span>' +
       '</div>' +
-      '<div class="content-section" id="cs_' + s.id + '"></div>' +
+      '<div class="content-section" id="cs_' + s.id + '" data-page-id="' + s.page_id + '"></div>' +
     '</div>';
   }).join('');
-  seeded.forEach(function(s) { renderLinks(s.id); });
+  seeded.forEach(function(s) { renderLinks(s.id, s.page_id, s.content_links || []); });
 }
 
 function saveDeliveredDate(pageId, id) {
@@ -1424,40 +1429,24 @@ function saveDeliveredDate(pageId, id) {
   });
 }
 
-function saveContentDate(pageId, id) {
-  var date = document.getElementById('cont_' + id).value;
-  var msg = document.getElementById('datemsg_' + id);
-  if (!date) { msg.style.color = '#e05a5a'; msg.textContent = 'Pick a date first.'; return; }
-  fetch('/api/influencers/' + pageId + '/content-date', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({date: date})
-  }).then(function(r){ return r.json(); }).then(function(d){
-    if (d.error) { msg.style.color = '#e05a5a'; msg.textContent = d.error; return; }
-    msg.style.color = '#639922';
-    msg.textContent = 'Saved.';
-  }).catch(function(){
-    msg.style.color = '#e05a5a';
-    msg.textContent = 'Request failed.';
-  });
-}
-
-function renderLinks(id) {
-  var links = getLinks(id);
+function renderLinks(id, pageId, links) {
+  contentLinksCache[id] = links;
   var cs = document.getElementById('cs_' + id);
   if (!cs) return;
   var html = '';
-  links.forEach(function(url, i) {
+  links.forEach(function(item, i) {
     html += '<div class="content-strip">' +
-      '<a href="' + url + '" target="_blank" rel="noopener">' + url + '</a>' +
-      '<button class="del-btn" onclick="delLink(\'' + id + '\',' + i + ')">✕</button>' +
+      '<a href="' + item.url + '" target="_blank" rel="noopener">' + item.url + '</a>' +
+      (item.date ? '<span style="color:#666;font-size:11px;margin-left:8px">' + item.date + '</span>' : '') +
+      '<button class="del-btn" onclick="delLink(\'' + id + '\',\'' + pageId + '\',' + i + ')">✕</button>' +
     '</div>';
   });
   if (!links.length) html += '<div class="no-content">No content posted yet</div>';
   html += '<button class="add-content-btn" onclick="showAddLink(\'' + id + '\')">＋ Add content link</button>';
   html += '<div class="add-content-row" id="add_' + id + '" style="display:none">' +
-    '<input type="url" placeholder="https://..." id="inp_' + id + '" onkeydown="if(event.key===\'Enter\')saveLink(\'' + id + '\')">' +
-    '<button class="save-btn" onclick="saveLink(\'' + id + '\')">Save</button>' +
+    '<input type="url" placeholder="https://..." id="inp_' + id + '">' +
+    '<input type="date" id="inpdate_' + id + '" style="background:#1e1e28;border:1px solid #2a2a38;border-radius:5px;color:#ddd;font-size:12px;padding:3px 6px;font-family:inherit">' +
+    '<button class="save-btn" onclick="saveLink(\'' + id + '\',\'' + pageId + '\')">Save</button>' +
     '<button class="cancel-btn" onclick="hideAddLink(\'' + id + '\')">Cancel</button>' +
   '</div>';
   cs.innerHTML = html;
@@ -1471,20 +1460,19 @@ function showAddLink(id) {
 function hideAddLink(id) {
   document.getElementById('add_' + id).style.display = 'none';
 }
-function saveLink(id) {
+function saveLink(id, pageId) {
   var inp = document.getElementById('inp_' + id);
+  var dateInp = document.getElementById('inpdate_' + id);
   var url = inp ? inp.value.trim() : '';
   if (!url) return;
-  var links = getLinks(id);
-  links.push(url);
-  saveLinks(id, links);
-  renderLinks(id);
+  var links = (contentLinksCache[id] || []).slice();
+  links.push({url: url, date: dateInp ? dateInp.value : ''});
+  saveLinksToServer(id, pageId, links);
 }
-function delLink(id, idx) {
-  var links = getLinks(id);
+function delLink(id, pageId, idx) {
+  var links = (contentLinksCache[id] || []).slice();
   links.splice(idx, 1);
-  saveLinks(id, links);
-  renderLinks(id);
+  saveLinksToServer(id, pageId, links);
 }
 
 function renderDashboard(d) {
