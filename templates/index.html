@@ -138,8 +138,8 @@
   .add-content-btn { font-size: 11px; color: #FF333D; background: none; border: none; cursor: pointer; padding: 4px 0; margin-top: 2px; }
   .add-content-btn:hover { color: #ff8f94; }
   .add-content-row { display: flex; gap: 6px; margin-top: 6px; }
-  .add-content-row input { flex: 1; background: #1e1e28; border: 1px solid #2a2a38; border-radius: 5px; color: #ddd; font-size: 11px; padding: 5px 8px; font-family: inherit; }
-  .add-content-row input:focus { outline: none; border-color: #FF333D; }
+  .add-content-row input, .add-content-row select { flex: 1; background: #1e1e28; border: 1px solid #2a2a38; border-radius: 5px; color: #ddd; font-size: 11px; padding: 5px 8px; font-family: inherit; }
+  .add-content-row input:focus, .add-content-row select:focus { outline: none; border-color: #FF333D; }
   .add-content-row button { font-size: 11px; padding: 5px 10px; border-radius: 5px; border: none; cursor: pointer; font-family: inherit; }
   .save-btn { background: #FF333D; color: #fff; }
   .save-btn:hover { background: #ff525a; }
@@ -996,7 +996,7 @@ function fetchInvoiceReport(url) {
     }
 
     var body = '';
-    body += section('Product Delivered', d.delivered, function(x){
+    body += section('Seeded (Intake Survey Filled)', d.delivered, function(x){
       return '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1a1a24"><span>' + escapeHtml(x.name) + '</span><span style="color:#666">' + x.date + '</span></div>';
     });
     body += section('Affiliate Joined', d.affiliate, function(x){

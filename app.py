@@ -615,7 +615,7 @@ def invoice_report():
     for p in pages:
         name = get_prop(p, "Name") or get_prop(p, "Handle") or "Unknown"
 
-        d = get_prop(p, "Product Delivered")
+        d = get_prop(p, "Intake Survey Filled")
         if d and start.isoformat() <= d[:10] <= end.isoformat():
             delivered.append({"name": name, "date": d[:10]})
 
