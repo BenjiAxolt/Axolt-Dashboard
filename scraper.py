@@ -335,21 +335,22 @@ COUNTRY_NAMES = {
 }
 
 
+def _filter_toolbar(page):
+    """The filter chips (Countries/Followers/Interests/Age/Gender/More) are
+    bare non-semantic <div>s with no role/button/aria attributes at all —
+    confirmed via DevTools inspection, which is why role- and page-wide-text
+    based clicks kept failing or hitting the wrong element (creator cards
+    show a "Followers" stat label with the identical text). "Countries" is
+    the one label guaranteed not to collide with anything else on the page,
+    so it anchors a scoped locator for the smallest container that wraps
+    every filter chip, and lookups for the other labels are scoped to it."""
+    return page.locator("div:has-text('Countries'):has-text('Followers'):has-text('More')").last
+
+
 def _open_filter_dropdown(page, label):
-    """Opens a filter dropdown by its trigger button's visible label
-    ("Countries", "Followers", "More"). The role="combobox" guess from
-    DevTools inspection didn't hold up in practice (Locator.click timeouts
-    on all three), so this tries a few accessible-role guesses first, then
-    falls back to the same visible-text match used for the options inside —
-    that's the one thing confirmed stable across attempts."""
-    for role in ("combobox", "button"):
-        try:
-            page.get_by_role(role, name=label, exact=True).click(timeout=4000)
-            return True
-        except Exception:
-            continue
+    toolbar = _filter_toolbar(page)
     try:
-        page.get_by_text(label, exact=True).first.click(timeout=4000)
+        toolbar.get_by_text(label, exact=True).first.click(timeout=4000)
         return True
     except Exception:
         return False
@@ -570,18 +571,36 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                 cards = page.query_selector_all("a[aria-label^='Open portfolio for ']")
                 log("Found " + str(len(cards)) + " cards for: " + keyword + " (mem: " + str(_mem_mb()) + " MB)")
 
-                for card_index in range(len(cards)):
-                    if added_this_run >= limit:
-                        break
+                card_index = 0
+                stale_scrolls = 0
+                MAX_STALE_SCROLLS = 6  # give up on this keyword once scrolling stops loading anything new
+
+                while added_this_run < limit and not _stop_requested:
+                    cards = page.query_selector_all("a[aria-label^='Open portfolio for ']")
+
+                    if card_index >= len(cards):
+                        prev_count = len(cards)
+                        page.evaluate("window.scrollBy(0, 1000)")
+                        time.sleep(random.uniform(1.5, 2.5))
+                        if not page.url.startswith(MARKETPLACE_PREFIX):
+                            log("SAFETY STOP: navigated outside the Marketplace (" + page.url + "). Aborting run.")
+                            drifted = True
+                            break
+                        cards = page.query_selector_all("a[aria-label^='Open portfolio for ']")
+                        if len(cards) <= prev_count:
+                            stale_scrolls += 1
+                            if stale_scrolls >= MAX_STALE_SCROLLS:
+                                log("No more cards to load for: " + keyword + " (found " + str(len(cards)) + " total)")
+                                break
+                            continue
+                        stale_scrolls = 0
+                        continue
+
                     if _stop_requested:
                         log("Stop requested — ending run.")
                         break
 
                     try:
-                        # Re-query cards each time since clicking may detach old handles
-                        cards = page.query_selector_all("a[aria-label^='Open portfolio for ']")
-                        if card_index >= len(cards):
-                            break
                         card = cards[card_index]
 
                         aria_label = card.get_attribute("aria-label") or ""
@@ -703,6 +722,11 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                     except Exception as e:
                         log("Error on card: " + str(e))
                         continue
+                    finally:
+                        card_index += 1
+
+                if drifted:
+                    break
 
                 # Delay between keyword searches
                 if added_this_run < limit and not _stop_requested:
