@@ -335,6 +335,26 @@ COUNTRY_NAMES = {
 }
 
 
+def _open_filter_dropdown(page, label):
+    """Opens a filter dropdown by its trigger button's visible label
+    ("Countries", "Followers", "More"). The role="combobox" guess from
+    DevTools inspection didn't hold up in practice (Locator.click timeouts
+    on all three), so this tries a few accessible-role guesses first, then
+    falls back to the same visible-text match used for the options inside —
+    that's the one thing confirmed stable across attempts."""
+    for role in ("combobox", "button"):
+        try:
+            page.get_by_role(role, name=label, exact=True).click(timeout=4000)
+            return True
+        except Exception:
+            continue
+    try:
+        page.get_by_text(label, exact=True).first.click(timeout=4000)
+        return True
+    except Exception:
+        return False
+
+
 def _click_filter_option(page, role, name):
     """Meta's filter checkboxes/radios expose real accessible roles/names
     (confirmed via DevTools — the class names themselves are Meta's
@@ -361,36 +381,42 @@ def apply_marketplace_filters(page, country, follower_buckets, interaction_rate)
     country_name = COUNTRY_NAMES.get(country)
     if country_name:
         try:
-            page.get_by_role("combobox", name="Countries", exact=True).click(timeout=8000)
-            time.sleep(1)
-            if not _click_filter_option(page, "checkbox", country_name):
-                log("Could not select country filter: " + country_name)
-            page.keyboard.press("Escape")
-            time.sleep(1)
+            if not _open_filter_dropdown(page, "Countries"):
+                log("Could not open Countries filter dropdown")
+            else:
+                time.sleep(1)
+                if not _click_filter_option(page, "checkbox", country_name):
+                    log("Could not select country filter: " + country_name)
+                page.keyboard.press("Escape")
+                time.sleep(1)
         except Exception as e:
             log("Country filter error: " + str(e))
 
     if follower_buckets:
         try:
-            page.get_by_role("combobox", name="Followers", exact=True).click(timeout=8000)
-            time.sleep(1)
-            for bucket in follower_buckets:
-                if not _click_filter_option(page, "checkbox", bucket):
-                    log("Could not select follower bucket: " + bucket)
-                time.sleep(0.3)
-            page.keyboard.press("Escape")
-            time.sleep(1)
+            if not _open_filter_dropdown(page, "Followers"):
+                log("Could not open Followers filter dropdown")
+            else:
+                time.sleep(1)
+                for bucket in follower_buckets:
+                    if not _click_filter_option(page, "checkbox", bucket):
+                        log("Could not select follower bucket: " + bucket)
+                    time.sleep(0.3)
+                page.keyboard.press("Escape")
+                time.sleep(1)
         except Exception as e:
             log("Followers filter error: " + str(e))
 
     if interaction_rate:
         try:
-            page.get_by_role("combobox", name="More", exact=True).click(timeout=8000)
-            time.sleep(1)
-            if not _click_filter_option(page, "radio", interaction_rate):
-                log("Could not select interaction rate: " + interaction_rate)
-            page.keyboard.press("Escape")
-            time.sleep(1)
+            if not _open_filter_dropdown(page, "More"):
+                log("Could not open More filter dropdown")
+            else:
+                time.sleep(1)
+                if not _click_filter_option(page, "radio", interaction_rate):
+                    log("Could not select interaction rate: " + interaction_rate)
+                page.keyboard.press("Escape")
+                time.sleep(1)
         except Exception as e:
             log("Interaction rate filter error: " + str(e))
 
