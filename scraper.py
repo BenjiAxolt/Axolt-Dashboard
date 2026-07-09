@@ -497,7 +497,6 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                     "--disable-background-networking",
                     "--disable-default-apps",
                     "--disable-sync",
-                    "--single-process",
                     "--disable-features=site-per-process,TranslateUI",
                     "--js-flags=--max-old-space-size=256",
                 ],
