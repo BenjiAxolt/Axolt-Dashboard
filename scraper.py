@@ -336,18 +336,26 @@ COUNTRY_NAMES = {
 
 
 def _filter_toolbar(page):
-    """The filter chips (Countries/Followers/Interests/Age/Gender/More) are
-    bare non-semantic <div>s with no role/button/aria attributes at all —
-    confirmed via DevTools inspection, which is why role- and page-wide-text
-    based clicks kept failing or hitting the wrong element (creator cards
-    show a "Followers" stat label with the identical text). "Countries" is
-    the one label guaranteed not to collide with anything else on the page,
-    so it anchors a scoped locator for the smallest container that wraps
-    every filter chip, and lookups for the other labels are scoped to it."""
+    """The filter chip's own text label div (e.g. "Followers") has no role —
+    but DevTools confirmed its immediate parent does: <div role="combobox"
+    tabindex="0" id="js_gt">, wrapping both the label and the chevron icon.
+    "Countries" is the one label guaranteed not to collide with anything
+    else on the page (creator cards duplicate "Followers"/"More"-ish text
+    in their stats), so it anchors a scoped locator for the smallest
+    container wrapping every filter chip, used as a fallback below."""
     return page.locator("div:has-text('Countries'):has-text('Followers'):has-text('More')").last
 
 
 def _open_filter_dropdown(page, label):
+    # Primary: the role="combobox" wrapper really exists (confirmed via
+    # DevTools) — exact=True kept failing, so this assumes the accessible
+    # name isn't a clean exact match (likely includes the chevron icon) and
+    # uses a substring match instead.
+    try:
+        page.get_by_role("combobox", name=label, exact=False).first.click(timeout=4000)
+        return True
+    except Exception:
+        pass
     toolbar = _filter_toolbar(page)
     try:
         toolbar.get_by_text(label, exact=True).first.click(timeout=4000)
