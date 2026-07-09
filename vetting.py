@@ -88,13 +88,22 @@ def call_claude(system, user):
 
 
 def assess_brand_fit(brand_brief, creator):
+    # The scraper never actually populates categories (Meta doesn't expose
+    # creator-tagged niches on the profile page) — sending a blank
+    # "Categories: " line every time reads as "this creator has no
+    # categories" rather than "we have no data", which likely biased
+    # judgments toward skipping. Only include the line when there's real
+    # data; otherwise let Claude infer niche from the bio text alone, same
+    # as it already does to produce its own "tags" output.
+    categories = creator.get("categories") or []
+    categories_line = "Categories: " + ", ".join(categories) + "\n" if categories else ""
     user = (
         "BRAND BRIEF:\n" + (brand_brief or "(no brand brief set)") + "\n\n"
         "CREATOR PROFILE:\n"
         "Name: " + creator.get("name", "") + "\n"
         "Handle: " + creator.get("handle", "") + "\n"
         "Bio: " + creator.get("bio", "") + "\n"
-        "Categories: " + ", ".join(creator.get("categories", [])) + "\n"
+        + categories_line +
         "Followers: " + str(creator.get("followers", "")) + "\n"
     )
     raw = call_claude(VET_SYSTEM, user)
