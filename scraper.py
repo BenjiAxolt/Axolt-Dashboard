@@ -196,11 +196,19 @@ def add_to_vetting_queue(creator, vet_result, country):
     if vet_result.get("email"):
         props["Email"] = {"email": vet_result["email"]}
 
-    requests.post(
+    r = requests.post(
         "https://api.notion.com/v1/pages",
         headers=NOTION_HEADERS,
         json={"parent": {"database_id": VETTING_QUEUE_DB}, "properties": props},
     )
+    if r.status_code >= 300:
+        # This call's result was never checked before — a failed write (bad
+        # property name, invalid select option, etc.) would silently vanish
+        # with the run log still showing "-> Review"/"-> Vetted" as if it
+        # succeeded, since that log line only reflects vet_creator's verdict,
+        # not whether the Notion page write actually went through.
+        log("Vetting queue write FAILED (" + str(r.status_code) + "): " + r.text[:500])
+    return r.status_code < 300
 
 
 SAME_SITE_MAP = {
