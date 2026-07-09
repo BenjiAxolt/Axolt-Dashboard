@@ -557,6 +557,16 @@
       This account is managed via server configuration and can't change its password here.
     </div>
   </div>
+
+  <div class="panel" style="max-width:520px;margin-top:16px">
+    <div class="panel-title">Invoice Report</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <button onclick="shiftInvoicePeriod(-1)" style="background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;padding:5px 10px;cursor:pointer;font-family:inherit">← Prev</button>
+      <div id="invoice-period-label" style="font-size:13px;color:#ddd;flex:1;text-align:center">—</div>
+      <button onclick="shiftInvoicePeriod(1)" style="background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;padding:5px 10px;cursor:pointer;font-family:inherit">Next →</button>
+    </div>
+    <div id="invoice-report-body" style="font-size:12px;color:#ccc"></div>
+  </div>
 </div>
 
 <script>
@@ -581,6 +591,7 @@ function showTab(name, btn) {
   }
   if (name === 'profile') {
     loadProfile();
+    loadInvoiceReport();
   }
   if (name === 'home') {
     loadHomeSummary();
@@ -934,6 +945,67 @@ function loadProfile() {
       document.getElementById('profile-password-section').style.display = 'block';
       document.getElementById('profile-bootstrap-note').style.display = 'none';
     }
+  });
+}
+
+var invoicePeriodOffset = 0;
+
+function shiftInvoicePeriod(delta) {
+  invoicePeriodOffset += delta;
+  loadInvoiceReport();
+}
+
+function addMonthsToDate(iso, months) {
+  var d = new Date(iso + 'T00:00:00');
+  d.setMonth(d.getMonth() + months);
+  return toISODate(d);
+}
+
+function loadInvoiceReport() {
+  var url = '/api/reports/invoice';
+  if (invoicePeriodOffset !== 0) {
+    // Fetch the default (current) period first to compute offset periods from it.
+    fetch('/api/reports/invoice').then(function(r){ return r.json(); }).then(function(base){
+      var start = addMonthsToDate(base.start, invoicePeriodOffset);
+      var end = addMonthsToDate(base.end, invoicePeriodOffset);
+      fetchInvoiceReport('/api/reports/invoice?start=' + start + '&end=' + end);
+    });
+  } else {
+    fetchInvoiceReport(url);
+  }
+}
+
+function fetchInvoiceReport(url) {
+  fetch(url).then(function(r){ return r.json(); }).then(function(d){
+    var fmt = function(iso) {
+      var dt = new Date(iso + 'T00:00:00');
+      return ordinal(dt.getDate()) + ' ' + MONTH_NAMES[dt.getMonth()].slice(0, 3) + ' ' + dt.getFullYear();
+    };
+    document.getElementById('invoice-period-label').textContent = fmt(d.start) + ' — ' + fmt(d.end);
+
+    function section(title, items, renderItem) {
+      var html = '<div style="margin-bottom:16px">' +
+        '<div style="font-size:12px;color:#ddd;font-weight:600;margin-bottom:6px">' + title + ' (' + items.length + ')</div>';
+      if (!items.length) {
+        html += '<div style="color:#555;font-size:11px">None this period</div>';
+      } else {
+        html += items.map(renderItem).join('');
+      }
+      html += '</div>';
+      return html;
+    }
+
+    var body = '';
+    body += section('Product Delivered', d.delivered, function(x){
+      return '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1a1a24"><span>' + escapeHtml(x.name) + '</span><span style="color:#666">' + x.date + '</span></div>';
+    });
+    body += section('Affiliate Joined', d.affiliate, function(x){
+      return '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1a1a24"><span>' + escapeHtml(x.name) + '</span><span style="color:#666">' + x.date + '</span></div>';
+    });
+    body += section('Content Posted', d.content, function(x){
+      return '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1a1a24"><span>' + escapeHtml(x.name) + ' — <a href="' + x.url + '" target="_blank" rel="noopener" style="color:#ff8f94">link</a></span><span style="color:#666">' + x.date + '</span></div>';
+    });
+    document.getElementById('invoice-report-body').innerHTML = body;
   });
 }
 
@@ -1409,7 +1481,7 @@ function renderSeeded(seeded) {
         '<div class="seeded-name">' + s.name + '</div>' +
         (s.handle ? '<div class="seeded-handle">' + s.handle + '</div>' : '') +
         (s.followers ? '<div class="seeded-followers">' + s.followers + '</div>' : '') +
-        '<span class="stage-pill" style="color:' + s.sc + ';background:' + s.sb + '">' + s.stage + '</span>' +
+        '<span class="stage-pill" style="color:' + s.sc + ';background:' + s.sb + ';cursor:pointer" title="Click to edit" onclick="showEditStage(\'' + s.id + '\')">' + s.stage + '</span>' +
         (s.affiliate ?
           '<span class="stage-pill" style="color:#7F77DD;background:rgba(127,119,221,0.15);cursor:pointer" title="Click to edit" onclick="showEditAffiliate(\'' + s.id + '\')">Affiliate' + (s.affiliate_date ? ' · ' + s.affiliate_date : '') + '</span>' :
           '<span class="stage-pill" style="color:#666;background:#1e1e28;cursor:pointer" onclick="showEditAffiliate(\'' + s.id + '\')">+ Affiliate</span>') +
@@ -1432,10 +1504,41 @@ function renderSeeded(seeded) {
         (s.affiliate ? '<button class="cancel-btn" onclick="saveAffiliate(\'' + s.page_id + '\',\'' + s.id + '\', false)">Remove</button>' : '') +
         '<button class="cancel-btn" onclick="hideEditAffiliate(\'' + s.id + '\')">Cancel</button>' +
       '</div>' +
+      '<div class="add-content-row" id="stageedit_' + s.id + '" style="display:none">' +
+        '<select id="stagesel_' + s.id + '">' +
+          STAGE_OPTIONS.map(function(opt){ return '<option value="' + opt + '"' + (opt === s.stage ? ' selected' : '') + '>' + opt + '</option>'; }).join('') +
+        '</select>' +
+        '<button class="save-btn" onclick="saveStage(\'' + s.page_id + '\',\'' + s.id + '\')">Save</button>' +
+        '<button class="cancel-btn" onclick="hideEditStage(\'' + s.id + '\')">Cancel</button>' +
+      '</div>' +
       '<div class="content-section" id="cs_' + s.id + '" data-page-id="' + s.page_id + '"></div>' +
     '</div>';
   }).join('');
   seeded.forEach(function(s) { renderLinks(s.id, s.page_id, s.content_links || []); });
+}
+
+var STAGE_OPTIONS = [
+  'Lead', 'Contacted', 'Replied', 'Intake Survey Filled', 'Product Delivered',
+  '14-Day Survey Sent', '14-Day Survey Filled', '30-Day Survey Sent', '30-Day Survey Filled',
+  'Unresponsive', 'Declined', 'Not Now', 'Duplicate'
+];
+
+function showEditStage(id) {
+  document.getElementById('stageedit_' + id).style.display = 'flex';
+}
+function hideEditStage(id) {
+  document.getElementById('stageedit_' + id).style.display = 'none';
+}
+function saveStage(pageId, id) {
+  var stage = document.getElementById('stagesel_' + id).value;
+  fetch('/api/influencers/' + pageId + '/stage', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({stage: stage})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { alert(d.error); return; }
+    refreshData();
+  });
 }
 
 function showEditAffiliate(id) {

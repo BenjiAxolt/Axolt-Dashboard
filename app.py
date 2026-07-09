@@ -554,6 +554,97 @@ def influencers_set_affiliate(page_id):
     return jsonify({"status": "updated", "joined": joined, "date": date_str})
 
 
+STAGE_OPTIONS = [
+    "Lead", "Contacted", "Replied", "Intake Survey Filled", "Product Delivered",
+    "14-Day Survey Sent", "14-Day Survey Filled", "30-Day Survey Sent", "30-Day Survey Filled",
+    "Unresponsive", "Declined", "Not Now", "Duplicate",
+]
+
+
+@app.route("/api/influencers/<page_id>/stage", methods=["POST"])
+@login_required
+def influencers_set_stage(page_id):
+    """Manually correct a creator's Stage — e.g. Uta filled in her 14-Day
+    Survey but there was no way to reflect that outside the automated
+    outreach/survey flows. If the chosen stage has a matching date property
+    (several stage names exactly match a date field, e.g. "14-Day Survey
+    Filled"), stamp it with today if it isn't already set."""
+    data = request.json or {}
+    stage = (data.get("stage") or "").strip()
+    if stage not in STAGE_OPTIONS:
+        return jsonify({"error": "Invalid stage"}), 400
+
+    r = requests.get("https://api.notion.com/v1/pages/" + page_id, headers=NOTION_HEADERS)
+    page = r.json()
+    props = {"Stage": {"select": {"name": stage}}}
+    prop_schema = page.get("properties", {}).get(stage, {})
+    if prop_schema.get("type") == "date" and not get_prop(page, stage):
+        props[stage] = {"date": {"start": datetime.now(timezone.utc).date().isoformat()}}
+
+    requests.patch(
+        "https://api.notion.com/v1/pages/" + page_id,
+        headers=NOTION_HEADERS,
+        json={"properties": props},
+    )
+    return jsonify({"status": "updated", "stage": stage})
+
+
+@app.route("/api/reports/invoice")
+@login_required
+def invoice_report():
+    """Billing periods run the 6th through the 5th (invoices go out on the
+    6th), so this counts what happened in the period ending on a given 5th
+    — defaulting to the current in-progress period."""
+    start_str = request.args.get("start")
+    end_str = request.args.get("end")
+    if start_str and end_str:
+        start = datetime.fromisoformat(start_str).date()
+        end = datetime.fromisoformat(end_str).date()
+    else:
+        today = datetime.now(timezone.utc).date()
+        if today.day >= 6:
+            start = today.replace(day=6)
+            next_month = (start.replace(day=1) + timedelta(days=32)).replace(day=1)
+            end = next_month.replace(day=5)
+        else:
+            end = today.replace(day=5)
+            start = (end.replace(day=1) - timedelta(days=1)).replace(day=6)
+
+    pages = query_db(INFLUENCER_DB)
+    delivered, affiliate, content = [], [], []
+    for p in pages:
+        name = get_prop(p, "Name") or get_prop(p, "Handle") or "Unknown"
+
+        d = get_prop(p, "Product Delivered")
+        if d and start.isoformat() <= d[:10] <= end.isoformat():
+            delivered.append({"name": name, "date": d[:10]})
+
+        a = get_prop(p, "Affiliate Joined Date")
+        if a and start.isoformat() <= a[:10] <= end.isoformat():
+            affiliate.append({"name": name, "date": a[:10]})
+
+        try:
+            links = json.loads(get_prop(p, "Content Links") or "[]")
+        except (ValueError, TypeError):
+            links = []
+        for item in links:
+            ld = (item.get("date") or "")[:10]
+            if ld and start.isoformat() <= ld <= end.isoformat():
+                content.append({"name": name, "url": item.get("url"), "date": ld})
+
+    delivered.sort(key=lambda x: x["date"])
+    affiliate.sort(key=lambda x: x["date"])
+    content.sort(key=lambda x: x["date"])
+
+    return jsonify({
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "delivered": delivered,
+        "affiliate": affiliate,
+        "content": content,
+    })
+
+
 @app.route("/api/influencers/<page_id>/content-links", methods=["POST"])
 @login_required
 def influencers_set_content_links(page_id):
