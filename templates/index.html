@@ -1410,6 +1410,9 @@ function renderSeeded(seeded) {
         (s.handle ? '<div class="seeded-handle">' + s.handle + '</div>' : '') +
         (s.followers ? '<div class="seeded-followers">' + s.followers + '</div>' : '') +
         '<span class="stage-pill" style="color:' + s.sc + ';background:' + s.sb + '">' + s.stage + '</span>' +
+        (s.affiliate ?
+          '<span class="stage-pill" style="color:#7F77DD;background:rgba(127,119,221,0.15);cursor:pointer" title="Click to edit" onclick="showEditAffiliate(\'' + s.id + '\')">Affiliate' + (s.affiliate_date ? ' · ' + s.affiliate_date : '') + '</span>' :
+          '<span class="stage-pill" style="color:#666;background:#1e1e28;cursor:pointer" onclick="showEditAffiliate(\'' + s.id + '\')">+ Affiliate</span>') +
       '</div>' +
       (s.category ? '<div class="seeded-meta">' + s.category + '</div>' : '') +
       '<div style="display:flex;align-items:center;gap:6px;margin:6px 0;font-size:11px;color:#666">' +
@@ -1422,10 +1425,36 @@ function renderSeeded(seeded) {
         '<button class="save-btn" onclick="saveDeliveredDate(\'' + s.page_id + '\',\'' + s.id + '\')">Save</button>' +
         '<button class="cancel-btn" onclick="hideEditDelivered(\'' + s.id + '\')">Cancel</button>' +
       '</div>' +
+      '<div class="add-content-row" id="affedit_' + s.id + '" style="display:none">' +
+        '<span style="font-size:11px;color:#666">Joined:</span>' +
+        '<input type="date" id="aff_' + s.id + '" value="' + (s.affiliate_date_raw || '') + '">' +
+        '<button class="save-btn" onclick="saveAffiliate(\'' + s.page_id + '\',\'' + s.id + '\', true)">Save</button>' +
+        (s.affiliate ? '<button class="cancel-btn" onclick="saveAffiliate(\'' + s.page_id + '\',\'' + s.id + '\', false)">Remove</button>' : '') +
+        '<button class="cancel-btn" onclick="hideEditAffiliate(\'' + s.id + '\')">Cancel</button>' +
+      '</div>' +
       '<div class="content-section" id="cs_' + s.id + '" data-page-id="' + s.page_id + '"></div>' +
     '</div>';
   }).join('');
   seeded.forEach(function(s) { renderLinks(s.id, s.page_id, s.content_links || []); });
+}
+
+function showEditAffiliate(id) {
+  document.getElementById('affedit_' + id).style.display = 'flex';
+}
+function hideEditAffiliate(id) {
+  document.getElementById('affedit_' + id).style.display = 'none';
+}
+function saveAffiliate(pageId, id, joined) {
+  var date = document.getElementById('aff_' + id).value;
+  if (joined && !date) { alert('Pick a date first.'); return; }
+  fetch('/api/influencers/' + pageId + '/affiliate', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({joined: joined, date: date})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { alert(d.error); return; }
+    refreshData();
+  });
 }
 
 function showEditDelivered(id) {

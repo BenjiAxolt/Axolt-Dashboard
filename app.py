@@ -306,6 +306,9 @@ def dashboard_data():
                 "delivered": fmt_date(get_prop(p, "Product Delivered")),
                 "delivered_raw": get_prop(p, "Product Delivered"),
                 "content_links": content_links,
+                "affiliate": bool(get_prop(p, "Affiliate Program")),
+                "affiliate_date": fmt_date(get_prop(p, "Affiliate Joined Date")),
+                "affiliate_date_raw": get_prop(p, "Affiliate Joined Date"),
                 "stage": stage,
                 "sc": sc,
                 "sb": sb,
@@ -519,6 +522,36 @@ def influencers_set_delivered_date(page_id):
     schedule_survey_chain(delivered_date, 14, name)
     schedule_survey_chain(delivered_date, 30, name)
     return jsonify({"status": "updated", "date": delivered_date.isoformat()})
+
+
+@app.route("/api/influencers/<page_id>/affiliate", methods=["POST"])
+@login_required
+def influencers_set_affiliate(page_id):
+    """Mark whether a creator has joined the affiliate program, independent
+    of the seeding pipeline — a creator can be seeded without being an
+    affiliate, or (once the business allows it) vice versa."""
+    data = request.json or {}
+    joined = bool(data.get("joined"))
+    date_str = (data.get("date") or "").strip()
+
+    props = {"Affiliate Program": {"checkbox": joined}}
+    if joined:
+        if not date_str:
+            return jsonify({"error": "Date is required"}), 400
+        try:
+            datetime.fromisoformat(date_str)
+        except ValueError:
+            return jsonify({"error": "Invalid date"}), 400
+        props["Affiliate Joined Date"] = {"date": {"start": date_str}}
+    else:
+        props["Affiliate Joined Date"] = {"date": None}
+
+    requests.patch(
+        "https://api.notion.com/v1/pages/" + page_id,
+        headers=NOTION_HEADERS,
+        json={"properties": props},
+    )
+    return jsonify({"status": "updated", "joined": joined, "date": date_str})
 
 
 @app.route("/api/influencers/<page_id>/content-links", methods=["POST"])
