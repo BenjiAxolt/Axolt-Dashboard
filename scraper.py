@@ -418,13 +418,25 @@ def apply_marketplace_filters(page, country, follower_buckets, interaction_rate)
 
     if interaction_rate:
         try:
+            # Unlike Followers/Countries, "More" opens a full "Creator
+            # filters" modal (confirmed via DevTools) rather than a plain
+            # dropdown — selections inside it don't take effect live, and
+            # pressing Escape just cancels the whole dialog. It has its own
+            # "Show creators" button that must be clicked to actually apply
+            # the selection (and it closes the modal itself).
             if not _open_filter_dropdown(page, "More"):
                 log("Could not open More filter dropdown")
             else:
                 time.sleep(1)
                 if not _click_filter_option(page, "radio", interaction_rate):
                     log("Could not select interaction rate: " + interaction_rate)
-                page.keyboard.press("Escape")
+                    page.keyboard.press("Escape")
+                else:
+                    try:
+                        page.get_by_text("Show creators", exact=True).first.click(timeout=5000)
+                    except Exception:
+                        log("Could not find Show creators button — closing without applying")
+                        page.keyboard.press("Escape")
                 time.sleep(1)
         except Exception as e:
             log("Interaction rate filter error: " + str(e))
