@@ -437,7 +437,8 @@
     <button id="vet-tab-vetted" class="active" onclick="switchVettingTab('Vetted')">Vetted</button>
     <button id="vet-tab-review" onclick="switchVettingTab('Review')">Review</button>
   </div>
-  <div id="vetting-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px"></div>
+  <div id="vetting-position" style="font-size:11px;color:#666;text-align:center;margin-bottom:10px"></div>
+  <div id="vetting-cards"></div>
   <div id="vetting-empty" style="display:none;color:#666;font-size:13px;padding:30px 0;text-align:center">No creators here yet.</div>
 </div>
 <div class="section" id="tab-templates">
@@ -1061,14 +1062,17 @@ function switchVettingTab(outcome) {
   loadVetting();
 }
 
+var vettingQueue = [];
+
 function loadVetting() {
   var container = document.getElementById('vetting-cards');
   var empty = document.getElementById('vetting-empty');
   container.innerHTML = '<div style="color:#666;font-size:12px">Loading...</div>';
   empty.style.display = 'none';
+  document.getElementById('vetting-position').textContent = '';
   fetch('/api/vetting/list?outcome=' + encodeURIComponent(currentVettingOutcome))
     .then(function(r){ return r.json(); })
-    .then(function(d){ renderVettingCards(d.creators || []); })
+    .then(function(d){ vettingQueue = d.creators || []; renderCurrentVettingCard(); })
     .catch(function(){ container.innerHTML = '<div style="color:#b33;font-size:12px">Failed to load.</div>'; });
 }
 
@@ -1328,52 +1332,72 @@ function copyText(btnEl) {
   }
 }
 
-function renderVettingCards(creators) {
+function renderCurrentVettingCard() {
   var container = document.getElementById('vetting-cards');
   var empty = document.getElementById('vetting-empty');
-  if (!creators.length) {
+  var pos = document.getElementById('vetting-position');
+
+  if (!vettingQueue.length) {
     container.innerHTML = '';
     empty.style.display = 'block';
+    pos.textContent = '';
     return;
   }
   empty.style.display = 'none';
-  container.innerHTML = creators.map(function(c){
-    var tags = (c.tags || []).map(function(t){ return '<span class="tag">' + escapeHtml(t) + '</span>'; }).join('');
-    var stats = [
-      c.followers ? c.followers.toLocaleString() + ' followers' : null,
-      c.engagement_rate ? c.engagement_rate + '% ER' : null,
-      c.country || null,
-      c.avg_views ? c.avg_views.toLocaleString() + ' avg views' : null
-    ].filter(Boolean).join(' · ');
 
-    var actions;
-    if (currentVettingOutcome === 'Vetted') {
-      actions =
-        '<div style="display:flex;gap:8px;margin-top:8px">' +
-        '<button onclick="approveCreator(\'' + c.id + '\')" style="flex:1;background:#639922;color:#fff;border:none;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">Approve</button>' +
-        '<button onclick="skipCreator(\'' + c.id + '\')" style="flex:1;background:#b33;color:#fff;border:none;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">Skip</button>' +
-        '</div>';
-    } else {
-      actions =
-        '<div style="font-size:11px;color:#d4a72c;margin-top:2px">⚑ ' + escapeHtml(c.flag_note || 'Needs review') + '</div>' +
-        '<input type="email" placeholder="Paste email if missing" value="' + escapeHtml(c.email) + '" id="email-' + c.id + '" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:7px 9px;font-family:inherit;margin-top:6px">' +
-        '<div style="display:flex;gap:8px;margin-top:8px">' +
-        '<button onclick="moveToVetted(\'' + c.id + '\')" style="flex:1;background:#FF333D;color:#fff;border:none;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">Move to Vetted</button>' +
-        '<button onclick="skipCreator(\'' + c.id + '\')" style="flex:1;background:#b33;color:#fff;border:none;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">Skip</button>' +
-        '</div>';
-    }
+  var c = vettingQueue[0];
+  pos.textContent = vettingQueue.length + ' remaining';
 
-    return '<div class="creator-card">' +
-      '<div style="font-weight:600;font-size:14px">' + escapeHtml(c.name || c.handle) + '</div>' +
-      '<div style="font-size:11px;color:#777">' + escapeHtml(c.handle) + (c.niche ? ' · ' + escapeHtml(c.niche) : '') + '</div>' +
-      (stats ? '<div style="font-size:11px;color:#999">' + stats + '</div>' : '') +
-      (tags ? '<div>' + tags + '</div>' : '') +
-      (c.email && currentVettingOutcome === 'Vetted' ? '<div style="font-size:11px;color:#639922">' + escapeHtml(c.email) + '</div>' : '') +
-      (c.analysis ? '<div style="font-size:11px;color:#888;line-height:1.4">' + escapeHtml(c.analysis) + '</div>' : '') +
-      (c.profile_url ? '<a href="' + escapeHtml(c.profile_url) + '" target="_blank" style="font-size:11px;color:#ff8f94">View profile →</a>' : '') +
-      actions +
+  var tags = (c.tags || []).map(function(t){ return '<span class="tag">' + escapeHtml(t) + '</span>'; }).join('');
+  var stats = [
+    c.followers ? c.followers.toLocaleString() + ' followers' : null,
+    c.engagement_rate ? c.engagement_rate + '% ER' : null,
+    c.country || null,
+    c.avg_views ? c.avg_views.toLocaleString() + ' avg views' : null
+  ].filter(Boolean).join(' · ');
+
+  var thumbs = (c.thumbnails || []).slice(0, 6);
+  var thumbsHtml = thumbs.length ? (
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:14px 0">' +
+    thumbs.map(function(t){
+      var src = typeof t === 'string' ? t : (t.src || '');
+      var link = (t && typeof t === 'object' && t.link) ? t.link : c.profile_url;
+      if (!src) return '';
+      return '<a href="' + escapeHtml(link || '#') + '" target="_blank" rel="noopener noreferrer">' +
+        '<img src="' + escapeHtml(src) + '" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block;background:#1e1e28">' +
+      '</a>';
+    }).join('') +
+    '</div>'
+  ) : '';
+
+  var actions;
+  if (currentVettingOutcome === 'Vetted') {
+    actions =
+      '<div style="display:flex;gap:10px;margin-top:16px">' +
+      '<button onclick="approveCreator(\'' + c.id + '\')" style="flex:1;background:#639922;color:#fff;border:none;border-radius:8px;padding:13px;font-size:13px;font-family:inherit;cursor:pointer">Approve</button>' +
+      '<button onclick="skipCreator(\'' + c.id + '\')" style="flex:1;background:#b33;color:#fff;border:none;border-radius:8px;padding:13px;font-size:13px;font-family:inherit;cursor:pointer">Skip</button>' +
       '</div>';
-  }).join('');
+  } else {
+    actions =
+      '<div style="font-size:12px;color:#d4a72c;margin-top:8px">⚑ ' + escapeHtml(c.flag_note || 'Needs review') + '</div>' +
+      '<input type="email" placeholder="Paste email if missing" value="' + escapeHtml(c.email) + '" id="email-' + c.id + '" style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:9px 10px;font-family:inherit;margin-top:8px;box-sizing:border-box">' +
+      '<div style="display:flex;gap:10px;margin-top:12px">' +
+      '<button onclick="moveToVetted(\'' + c.id + '\')" style="flex:1;background:#FF333D;color:#fff;border:none;border-radius:8px;padding:13px;font-size:13px;font-family:inherit;cursor:pointer">Move to Vetted</button>' +
+      '<button onclick="skipCreator(\'' + c.id + '\')" style="flex:1;background:#b33;color:#fff;border:none;border-radius:8px;padding:13px;font-size:13px;font-family:inherit;cursor:pointer">Skip</button>' +
+      '</div>';
+  }
+
+  container.innerHTML = '<div class="creator-card" style="max-width:460px;margin:0 auto;padding:22px">' +
+    '<div style="font-weight:700;font-size:18px">' + escapeHtml(c.name || c.handle) + '</div>' +
+    '<div style="font-size:12px;color:#777;margin-top:3px">' + escapeHtml(c.handle) + (c.niche ? ' · ' + escapeHtml(c.niche) : '') + '</div>' +
+    (stats ? '<div style="font-size:12px;color:#999;margin-top:8px">' + stats + '</div>' : '') +
+    (tags ? '<div style="margin-top:6px">' + tags + '</div>' : '') +
+    (c.email && currentVettingOutcome === 'Vetted' ? '<div style="font-size:12px;color:#639922;margin-top:8px">' + escapeHtml(c.email) + '</div>' : '') +
+    thumbsHtml +
+    (c.analysis ? '<div style="font-size:12px;color:#888;line-height:1.5;margin-top:8px">' + escapeHtml(c.analysis) + '</div>' : '') +
+    (c.profile_url ? '<a href="' + escapeHtml(c.profile_url) + '" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:12px;font-size:12px;color:#ff8f94">View profile →</a>' : '') +
+    actions +
+    '</div>';
 }
 
 function approveCreator(id) {

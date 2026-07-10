@@ -714,6 +714,10 @@ def influencers_set_content_links(page_id):
 
 
 def vetting_page_to_dict(page):
+    try:
+        thumbnails = json.loads(get_prop(page, "Post Thumbnails") or "[]")
+    except (ValueError, TypeError):
+        thumbnails = []
     return {
         "id": page["id"],
         "name": get_prop(page, "Name") or "",
@@ -729,6 +733,7 @@ def vetting_page_to_dict(page):
         "bio": get_prop(page, "Bio") or "",
         "analysis": get_prop(page, "AI Analysis") or "",
         "flag_note": get_prop(page, "Flag Note") or "",
+        "thumbnails": thumbnails,
     }
 
 

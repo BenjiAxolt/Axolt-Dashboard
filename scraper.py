@@ -328,10 +328,34 @@ def parse_name_bio(body_text, handle_key):
 
 
 def extract_thumbnails(page_html, limit=6):
-    """Pulls post/reel thumbnail image URLs from the profile page's raw HTML."""
+    """Pulls post/reel thumbnail image URLs from the profile page's raw HTML,
+    along with the specific post's link when the image is wrapped in an
+    anchor tag — so a thumbnail can open that exact post instead of just the
+    profile. Best-effort: if no anchor-wrapped images are found (Meta's
+    markup for this varies), falls back to bare images with no post link,
+    and the caller falls back further to the profile URL."""
+    pattern = re.compile(r'<a[^>]+href="([^"]+)"[^>]*>(?:(?!</a>).)*?<img[^>]+src="([^"]+)"', re.DOTALL)
+    seen = set()
+    thumbnails = []
+    for link, src in pattern.findall(page_html):
+        src = html.unescape(src)
+        if not ("cdninstagram" in src or "scontent" in src) or src in seen:
+            continue
+        seen.add(src)
+        link = html.unescape(link)
+        full_link = link if link.startswith("http") else "https://business.facebook.com" + link
+        thumbnails.append({"src": src, "link": full_link})
+        if len(thumbnails) >= limit:
+            return thumbnails
+
+    if thumbnails:
+        return thumbnails
+
     urls = re.findall(r'<img[^>]+src="([^"]+)"', page_html)
-    thumbnails = [html.unescape(u) for u in urls if "cdninstagram" in u or "scontent" in u]
-    return thumbnails[:limit]
+    return [
+        {"src": html.unescape(u), "link": None}
+        for u in urls if "cdninstagram" in u or "scontent" in u
+    ][:limit]
 
 
 FOLLOWER_BUCKET_RANGES = {
@@ -652,7 +676,13 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                             job["skipped"] += 1
                             continue
 
-                        profile_url = card.get_attribute("href") or ""
+                        # The card's own href is an internal Meta Business Suite
+                        # marketplace path (relative, session-dependent) — it
+                        # doesn't open anywhere useful from our own dashboard,
+                        # which is why "View profile" never worked. The real,
+                        # always-clickable link is just the public Instagram
+                        # profile URL, built straight from the handle.
+                        profile_url = "https://www.instagram.com/" + handle_key + "/"
 
                         # A modal left over from the previous card can block this
                         # card's click and stall for the full 30s timeout — clear
