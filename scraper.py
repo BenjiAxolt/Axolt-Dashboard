@@ -726,6 +726,15 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                             profile_page = page
                             time.sleep(2)
 
+                        # The post grid appears to lazy-load — without scrolling,
+                        # only whatever renders by default (as few as 3-4 posts)
+                        # is in the DOM, undershooting the 6-thumbnail target.
+                        try:
+                            profile_page.evaluate("window.scrollBy(0, 900)")
+                            time.sleep(1.5)
+                        except Exception:
+                            pass
+
                         body_text = profile_page.inner_text("body")
                         meta = parse_profile_meta(body_text)
                         real_name, bio = parse_name_bio(body_text, handle_key)
