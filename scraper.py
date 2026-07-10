@@ -173,6 +173,21 @@ def get_existing_handles():
     return handles
 
 
+def _thumbnails_json_capped(thumbnails, max_len=2000):
+    """Notion rich_text fields cap at 2000 chars, and this was silently
+    failing the entire page write for any creator whose thumbnail URLs
+    added up to more than that. Truncating the raw JSON string would risk
+    producing invalid JSON, so this drops trailing thumbnails instead until
+    the serialized list actually fits."""
+    thumbs = list(thumbnails)
+    while thumbs:
+        encoded = json.dumps(thumbs)
+        if len(encoded) <= max_len:
+            return encoded
+        thumbs.pop()
+    return "[]"
+
+
 def add_to_vetting_queue(creator, vet_result, country):
     props = {
         "Name": {"title": [{"text": {"content": creator.get("name") or creator.get("handle") or "Unknown"}}]},
@@ -192,7 +207,7 @@ def add_to_vetting_queue(creator, vet_result, country):
     if creator.get("profile_url"):
         props["Profile URL"] = {"url": creator["profile_url"]}
     if creator.get("thumbnails"):
-        props["Post Thumbnails"] = {"rich_text": [{"text": {"content": json.dumps(creator["thumbnails"])}}]}
+        props["Post Thumbnails"] = {"rich_text": [{"text": {"content": _thumbnails_json_capped(creator["thumbnails"])}}]}
     if vet_result.get("email"):
         props["Email"] = {"email": vet_result["email"]}
 
