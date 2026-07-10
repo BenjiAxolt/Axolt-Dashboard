@@ -2,6 +2,8 @@ import json
 import os
 import re
 import requests
+import time
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
@@ -15,6 +17,25 @@ import vetting
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-prod")
+
+# Per-process, in-memory rate limiting — not shared across gunicorn workers,
+# so it's a soft limit rather than a hard guarantee, but it's enough to stop
+# casual/scripted spam of unauthenticated endpoints like /forgot-password.
+_rate_limit_hits = defaultdict(list)
+
+
+def is_rate_limited(key_prefix, max_requests, window_seconds):
+    """Returns True (and does NOT count this call) if the caller's IP has
+    already hit max_requests within window_seconds; otherwise records this
+    call and returns False."""
+    key = key_prefix + ":" + (request.remote_addr or "unknown")
+    now = time.time()
+    hits = _rate_limit_hits[key]
+    hits[:] = [t for t in hits if now - t < window_seconds]
+    if len(hits) >= max_requests:
+        return True
+    hits.append(now)
+    return False
 
 NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "")
 INFLUENCER_DB = "f07a187424e64bc7b1b992ceced311c5"
@@ -176,15 +197,25 @@ def set_password():
     return render_template("set_password.html", error=error)
 
 
+GENERIC_FORGOT_PASSWORD_MESSAGE = (
+    "If that account exists, the admin has been notified and will be in touch with new login details."
+)
+
+
 @app.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
     message = None
     if request.method == "POST":
+        # Only submissions count toward the limit — just viewing the page
+        # (GET) is unrestricted. A rate-limited attacker gets the exact same
+        # generic message as everyone else, so there's no signal that
+        # limiting kicked in — same principle as not revealing which
+        # usernames exist.
+        if is_rate_limited("forgot-password", max_requests=5, window_seconds=900):
+            return render_template("forgot_password.html", message=GENERIC_FORGOT_PASSWORD_MESSAGE)
         username = (request.form.get("username") or "").strip()
         user = auth_store.find_user(username) if username else None
-        # Always show the same message, whether or not the username matched —
-        # don't reveal which accounts exist.
-        message = "If that account exists, the admin has been notified and will be in touch with new login details."
+        message = GENERIC_FORGOT_PASSWORD_MESSAGE
         if user:
             flags_store.create_flag(username, "Password Reset")
     return render_template("forgot_password.html", message=message)
