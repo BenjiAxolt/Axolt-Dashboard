@@ -675,6 +675,17 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                         if not handle_key or handle_key in seen:
                             job["skipped"] += 1
                             continue
+                        if not re.fullmatch(r"[a-z0-9._]+", handle_key):
+                            # Meta's aria-label occasionally gives us the
+                            # creator's display name instead of their real
+                            # @username (real IG handles never contain
+                            # spaces or other punctuation) — with no
+                            # username, there's no reliable way to link to
+                            # or dedupe this creator, so skip rather than
+                            # write broken links/data.
+                            log(handle + " skipped — aria-label gave a display name, not a real @handle")
+                            job["skipped"] += 1
+                            continue
 
                         # The card's own href is an internal Meta Business Suite
                         # marketplace path (relative, session-dependent) — it
