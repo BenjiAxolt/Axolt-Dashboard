@@ -639,15 +639,23 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
 
                 card_index = 0
                 stale_scrolls = 0
-                MAX_STALE_SCROLLS = 6  # give up on this keyword once scrolling stops loading anything new
+                # Meta's lazy-load can have a brief lull between batches — give
+                # it real breathing room before concluding a keyword is
+                # exhausted, rather than mistaking a slow batch for the end.
+                MAX_STALE_SCROLLS = 12
 
                 while added_this_run < limit and not _stop_requested:
                     cards = page.query_selector_all("a[aria-label^='Open portfolio for ']")
 
                     if card_index >= len(cards):
                         prev_count = len(cards)
-                        page.evaluate("window.scrollBy(0, 1000)")
-                        time.sleep(random.uniform(1.5, 2.5))
+                        # Scroll all the way to the current bottom (not a fixed
+                        # pixel amount) — infinite-scroll triggers are usually
+                        # tied to nearing the bottom of the loaded content, and
+                        # a fixed small scroll can land short of that trigger
+                        # depending on card layout/height.
+                        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                        time.sleep(random.uniform(3, 4.5))
                         if not page.url.startswith(MARKETPLACE_PREFIX):
                             log("SAFETY STOP: navigated outside the Marketplace (" + page.url + "). Aborting run.")
                             drifted = True
