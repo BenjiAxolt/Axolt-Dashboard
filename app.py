@@ -663,6 +663,8 @@ def influencers_set_content_links(page_id):
         date_str = (item.get("date") or "").strip()
         if not url:
             continue
+        if not re.match(r"^https?://", url, re.IGNORECASE):
+            return jsonify({"error": "Only http(s) links are allowed: " + url}), 400
         if date_str:
             try:
                 datetime.fromisoformat(date_str)

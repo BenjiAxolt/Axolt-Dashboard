@@ -1478,15 +1478,15 @@ function renderSeeded(seeded) {
   el.innerHTML = seeded.map(function(s) {
     return '<div class="seeded-row" id="row_' + s.id + '">' +
       '<div class="seeded-top">' +
-        '<div class="seeded-name">' + s.name + '</div>' +
-        (s.handle ? '<div class="seeded-handle">' + s.handle + '</div>' : '') +
-        (s.followers ? '<div class="seeded-followers">' + s.followers + '</div>' : '') +
-        '<span class="stage-pill" style="color:' + s.sc + ';background:' + s.sb + ';cursor:pointer" title="Click to edit" onclick="showEditStage(\'' + s.id + '\')">' + s.stage + '</span>' +
+        '<div class="seeded-name">' + escapeHtml(s.name) + '</div>' +
+        (s.handle ? '<div class="seeded-handle">' + escapeHtml(s.handle) + '</div>' : '') +
+        (s.followers ? '<div class="seeded-followers">' + escapeHtml(s.followers) + '</div>' : '') +
+        '<span class="stage-pill" style="color:' + s.sc + ';background:' + s.sb + ';cursor:pointer" title="Click to edit" onclick="showEditStage(\'' + s.id + '\')">' + escapeHtml(s.stage) + '</span>' +
         (s.affiliate ?
-          '<span class="stage-pill" style="color:#7F77DD;background:rgba(127,119,221,0.15);cursor:pointer" title="Click to edit" onclick="showEditAffiliate(\'' + s.id + '\')">Affiliate' + (s.affiliate_date ? ' · ' + s.affiliate_date : '') + '</span>' :
+          '<span class="stage-pill" style="color:#7F77DD;background:rgba(127,119,221,0.15);cursor:pointer" title="Click to edit" onclick="showEditAffiliate(\'' + s.id + '\')">Affiliate' + (s.affiliate_date ? ' · ' + escapeHtml(s.affiliate_date) : '') + '</span>' :
           '<span class="stage-pill" style="color:#666;background:#1e1e28;cursor:pointer" onclick="showEditAffiliate(\'' + s.id + '\')">+ Affiliate</span>') +
       '</div>' +
-      (s.category ? '<div class="seeded-meta">' + s.category + '</div>' : '') +
+      (s.category ? '<div class="seeded-meta">' + escapeHtml(s.category) + '</div>' : '') +
       '<div style="display:flex;align-items:center;gap:6px;margin:6px 0;font-size:11px;color:#666">' +
         '<span id="delvdisplay_' + s.id + '">Delivered: ' + (s.delivered || 'Not set') + '</span>' +
         '<button onclick="showEditDelivered(\'' + s.id + '\')" title="Edit delivery date" style="background:none;border:none;color:#888;cursor:pointer;font-size:12px;padding:0 4px">✎</button>' +
@@ -1588,15 +1588,24 @@ function saveDeliveredDate(pageId, id) {
   });
 }
 
+function isSafeUrl(url) {
+  return /^https?:\/\//i.test(url || '');
+}
+
 function renderLinks(id, pageId, links) {
   contentLinksCache[id] = links;
   var cs = document.getElementById('cs_' + id);
   if (!cs) return;
   var html = '';
   links.forEach(function(item, i) {
+    // Only render as a clickable link if it's actually http(s) — otherwise
+    // (e.g. a javascript: URI) show the escaped text with no href at all.
+    var linkHtml = isSafeUrl(item.url)
+      ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(item.url) + '</a>'
+      : '<span>' + escapeHtml(item.url) + '</span>';
     html += '<div class="content-strip">' +
-      '<a href="' + item.url + '" target="_blank" rel="noopener">' + item.url + '</a>' +
-      (item.date ? '<span style="color:#666;font-size:11px;margin-left:8px">' + item.date + '</span>' : '') +
+      linkHtml +
+      (item.date ? '<span style="color:#666;font-size:11px;margin-left:8px">' + escapeHtml(item.date) + '</span>' : '') +
       '<button class="del-btn" onclick="delLink(\'' + id + '\',\'' + pageId + '\',' + i + ')">✕</button>' +
     '</div>';
   });
