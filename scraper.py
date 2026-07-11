@@ -637,193 +637,189 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                 cards = page.query_selector_all("a[aria-label^='Open portfolio for ']")
                 log("Found " + str(len(cards)) + " cards for: " + keyword + " (mem: " + str(_mem_mb()) + " MB)")
 
-                card_index = 0
+                # Track progress by unique creator handle discovered, not raw
+                # DOM element count — Meta's marketplace appears to virtualize
+                # the grid (removing off-screen cards as new ones load in), so
+                # the total element count can plateau even while genuinely new
+                # creators keep appearing. Each newly-discovered card is
+                # processed immediately, before further scrolling has a chance
+                # to virtualize it back out of the DOM.
+                discovered = set()
                 stale_scrolls = 0
-                # Meta's lazy-load can have a brief lull between batches — give
-                # it real breathing room before concluding a keyword is
-                # exhausted, rather than mistaking a slow batch for the end.
                 MAX_STALE_SCROLLS = 12
 
                 while added_this_run < limit and not _stop_requested:
                     cards = page.query_selector_all("a[aria-label^='Open portfolio for ']")
+                    new_batch = []
+                    for card in cards:
+                        aria_label = card.get_attribute("aria-label") or ""
+                        handle = aria_label.replace("Open portfolio for ", "").strip()
+                        handle_key = handle.lower().strip().lstrip("@")
+                        if handle_key and handle_key not in discovered:
+                            discovered.add(handle_key)
+                            new_batch.append((handle, handle_key, card))
 
-                    if card_index >= len(cards):
-                        prev_count = len(cards)
-                        # Scroll all the way to the current bottom (not a fixed
-                        # pixel amount) — infinite-scroll triggers are usually
-                        # tied to nearing the bottom of the loaded content, and
-                        # a fixed small scroll can land short of that trigger
-                        # depending on card layout/height.
+                    if not new_batch:
                         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                         time.sleep(random.uniform(3, 4.5))
                         if not page.url.startswith(MARKETPLACE_PREFIX):
                             log("SAFETY STOP: navigated outside the Marketplace (" + page.url + "). Aborting run.")
                             drifted = True
                             break
-                        cards = page.query_selector_all("a[aria-label^='Open portfolio for ']")
-                        if len(cards) <= prev_count:
-                            stale_scrolls += 1
-                            if stale_scrolls >= MAX_STALE_SCROLLS:
-                                log("No more cards to load for: " + keyword + " (found " + str(len(cards)) + " total)")
-                                break
-                            continue
-                        stale_scrolls = 0
+                        stale_scrolls += 1
+                        if stale_scrolls >= MAX_STALE_SCROLLS:
+                            log("No more cards to load for: " + keyword + " (" + str(len(discovered)) + " unique found)")
+                            break
                         continue
 
-                    if _stop_requested:
-                        log("Stop requested — ending run.")
-                        break
+                    stale_scrolls = 0
 
-                    try:
-                        card = cards[card_index]
+                    for handle, handle_key, card in new_batch:
+                        if added_this_run >= limit or _stop_requested:
+                            break
+                        try:
+                            if handle_key in seen:
+                                job["skipped"] += 1
+                                continue
+                            if not re.fullmatch(r"[a-z0-9._]+", handle_key):
+                                # Meta's aria-label occasionally gives us the
+                                # creator's display name instead of their real
+                                # @username (real IG handles never contain
+                                # spaces or other punctuation) — with no
+                                # username, there's no reliable way to link to
+                                # or dedupe this creator, so skip rather than
+                                # write broken links/data.
+                                log(handle + " skipped — aria-label gave a display name, not a real @handle")
+                                job["skipped"] += 1
+                                continue
 
-                        aria_label = card.get_attribute("aria-label") or ""
-                        handle = aria_label.replace("Open portfolio for ", "").strip()
-                        handle_key = handle.lower().strip().lstrip("@")
-                        if not handle_key or handle_key in seen:
-                            job["skipped"] += 1
-                            continue
-                        if not re.fullmatch(r"[a-z0-9._]+", handle_key):
-                            # Meta's aria-label occasionally gives us the
-                            # creator's display name instead of their real
-                            # @username (real IG handles never contain
-                            # spaces or other punctuation) — with no
-                            # username, there's no reliable way to link to
-                            # or dedupe this creator, so skip rather than
-                            # write broken links/data.
-                            log(handle + " skipped — aria-label gave a display name, not a real @handle")
-                            job["skipped"] += 1
-                            continue
+                            # The card's own href is an internal Meta Business Suite
+                            # marketplace path (relative, session-dependent) — it
+                            # doesn't open anywhere useful from our own dashboard,
+                            # which is why "View profile" never worked. The real,
+                            # always-clickable link is just the public Instagram
+                            # profile URL, built straight from the handle.
+                            profile_url = "https://www.instagram.com/" + handle_key + "/"
 
-                        # The card's own href is an internal Meta Business Suite
-                        # marketplace path (relative, session-dependent) — it
-                        # doesn't open anywhere useful from our own dashboard,
-                        # which is why "View profile" never worked. The real,
-                        # always-clickable link is just the public Instagram
-                        # profile URL, built straight from the handle.
-                        profile_url = "https://www.instagram.com/" + handle_key + "/"
+                            # A modal left over from the previous card can block this
+                            # card's click and stall for the full 30s timeout — clear
+                            # it defensively before clicking in.
+                            page.keyboard.press("Escape")
+                            time.sleep(0.5)
 
-                        # A modal left over from the previous card can block this
-                        # card's click and stall for the full 30s timeout — clear
-                        # it defensively before clicking in.
-                        page.keyboard.press("Escape")
-                        time.sleep(0.5)
+                            # Click into the post-detail modal, then "View profile" for full stats
+                            card.click(timeout=15000)
+                            time.sleep(2)
 
-                        # Click into the post-detail modal, then "View profile" for full stats
-                        card.click(timeout=15000)
-                        time.sleep(2)
+                            view_profile_btn = page.get_by_text("View profile", exact=True)
+                            if view_profile_btn.count() == 0:
+                                log("Could not open profile for " + handle + " — skipping.")
+                                close_btn = page.query_selector("[aria-label='Close'], [aria-label='close']")
+                                if close_btn:
+                                    close_btn.click()
+                                else:
+                                    page.keyboard.press("Escape")
+                                job["skipped"] += 1
+                                continue
 
-                        view_profile_btn = page.get_by_text("View profile", exact=True)
-                        if view_profile_btn.count() == 0:
-                            log("Could not open profile for " + handle + " — skipping.")
+                            try:
+                                with context.expect_page(timeout=5000) as new_page_info:
+                                    view_profile_btn.first.click()
+                                profile_page = new_page_info.value
+                                profile_page.wait_for_load_state()
+                                time.sleep(2)
+                            except Exception:
+                                profile_page = page
+                                time.sleep(2)
+
+                            # The post grid appears to lazy-load — without scrolling,
+                            # only whatever renders by default (as few as 3-4 posts)
+                            # is in the DOM, undershooting the 6-thumbnail target.
+                            try:
+                                profile_page.evaluate("window.scrollBy(0, 900)")
+                                time.sleep(1.5)
+                            except Exception:
+                                pass
+
+                            body_text = profile_page.inner_text("body")
+                            meta = parse_profile_meta(body_text)
+                            real_name, bio = parse_name_bio(body_text, handle_key)
+                            thumbnails = extract_thumbnails(profile_page.content())
+
+                            insights_el = profile_page.query_selector("[data-pagelet='CreatorProfileInsightsOverview']")
+                            stats = parse_insights_stats(insights_el.inner_text()) if insights_el else {}
+                            followers = parse_followers(stats.get("Total followers"))
+                            engagement_rate = None
+                            if stats.get("Interaction rate"):
+                                try:
+                                    engagement_rate = float(stats["Interaction rate"].replace("%", ""))
+                                except Exception:
+                                    engagement_rate = None
+
+                            if profile_page is not page:
+                                profile_page.close()
+
+                            # Close the post-detail modal on the main page before continuing
                             close_btn = page.query_selector("[aria-label='Close'], [aria-label='close']")
                             if close_btn:
                                 close_btn.click()
                             else:
                                 page.keyboard.press("Escape")
-                            job["skipped"] += 1
-                            continue
+                            time.sleep(1)
 
-                        try:
-                            with context.expect_page(timeout=5000) as new_page_info:
-                                view_profile_btn.first.click()
-                            profile_page = new_page_info.value
-                            profile_page.wait_for_load_state()
-                            time.sleep(2)
-                        except Exception:
-                            profile_page = page
-                            time.sleep(2)
+                            if not followers_in_buckets(followers, follower_buckets):
+                                log(handle + " skipped — followers " + str(followers) + " outside selected buckets " + str(follower_buckets))
+                                job["skipped"] += 1
+                                continue
+                            if min_er is not None and (engagement_rate is None or engagement_rate < min_er):
+                                log(handle + " skipped — engagement rate " + str(engagement_rate) + " below threshold " + str(min_er))
+                                job["skipped"] += 1
+                                continue
 
-                        # The post grid appears to lazy-load — without scrolling,
-                        # only whatever renders by default (as few as 3-4 posts)
-                        # is in the DOM, undershooting the 6-thumbnail target.
-                        try:
-                            profile_page.evaluate("window.scrollBy(0, 900)")
-                            time.sleep(1.5)
-                        except Exception:
-                            pass
+                            creator = {
+                                "name": real_name or handle,
+                                "handle": "@" + handle_key,
+                                "followers": followers,
+                                "engagement_rate": engagement_rate,
+                                "categories": [],
+                                "bio": bio,
+                                "profile_url": profile_url,
+                                "thumbnails": thumbnails,
+                                "gender": meta.get("gender"),
+                                "age": meta.get("age"),
+                            }
 
-                        body_text = profile_page.inner_text("body")
-                        meta = parse_profile_meta(body_text)
-                        real_name, bio = parse_name_bio(body_text, handle_key)
-                        thumbnails = extract_thumbnails(profile_page.content())
-
-                        insights_el = profile_page.query_selector("[data-pagelet='CreatorProfileInsightsOverview']")
-                        stats = parse_insights_stats(insights_el.inner_text()) if insights_el else {}
-                        followers = parse_followers(stats.get("Total followers"))
-                        engagement_rate = None
-                        if stats.get("Interaction rate"):
+                            log("Vetting: " + handle)
                             try:
-                                engagement_rate = float(stats["Interaction rate"].replace("%", ""))
-                            except Exception:
-                                engagement_rate = None
+                                vet_result = vet_creator(creator, brand_brief)
+                            except Exception as e:
+                                log("Vetting error for " + handle + ": " + str(e))
+                                job["skipped"] += 1
+                                continue
 
-                        if profile_page is not page:
-                            profile_page.close()
+                            add_to_vetting_queue(creator, vet_result, country)
+                            seen.add(handle_key)
+                            job["found"] += 1
+                            job["added"] += 1
+                            added_this_run += 1
+                            increment_counter("sv_total_scraped")
+                            if vet_result["outcome"] == "Auto-skipped":
+                                job["auto_skipped"] += 1
+                                increment_counter("sv_total_auto_skipped")
+                            elif vet_result["outcome"] == "Vetted":
+                                job["vetted"] += 1
+                                increment_counter("sv_total_vetted")
+                            else:
+                                job["review"] += 1
+                                increment_counter("sv_total_review")
+                            log(handle + " -> " + vet_result["outcome"] + " (mem: " + str(_mem_mb()) + " MB)")
 
-                        # Close the post-detail modal on the main page before continuing
-                        close_btn = page.query_selector("[aria-label='Close'], [aria-label='close']")
-                        if close_btn:
-                            close_btn.click()
-                        else:
-                            page.keyboard.press("Escape")
-                        time.sleep(1)
+                            # Human-speed delay between creators
+                            time.sleep(random.uniform(2, 4))
 
-                        if not followers_in_buckets(followers, follower_buckets):
-                            log(handle + " skipped — followers " + str(followers) + " outside selected buckets " + str(follower_buckets))
-                            job["skipped"] += 1
-                            continue
-                        if min_er is not None and (engagement_rate is None or engagement_rate < min_er):
-                            log(handle + " skipped — engagement rate " + str(engagement_rate) + " below threshold " + str(min_er))
-                            job["skipped"] += 1
-                            continue
-
-                        creator = {
-                            "name": real_name or handle,
-                            "handle": "@" + handle_key,
-                            "followers": followers,
-                            "engagement_rate": engagement_rate,
-                            "categories": [],
-                            "bio": bio,
-                            "profile_url": profile_url,
-                            "thumbnails": thumbnails,
-                            "gender": meta.get("gender"),
-                            "age": meta.get("age"),
-                        }
-
-                        log("Vetting: " + handle)
-                        try:
-                            vet_result = vet_creator(creator, brand_brief)
                         except Exception as e:
-                            log("Vetting error for " + handle + ": " + str(e))
-                            job["skipped"] += 1
+                            log("Error on card: " + str(e))
                             continue
-
-                        add_to_vetting_queue(creator, vet_result, country)
-                        seen.add(handle_key)
-                        job["found"] += 1
-                        job["added"] += 1
-                        added_this_run += 1
-                        increment_counter("sv_total_scraped")
-                        if vet_result["outcome"] == "Auto-skipped":
-                            job["auto_skipped"] += 1
-                            increment_counter("sv_total_auto_skipped")
-                        elif vet_result["outcome"] == "Vetted":
-                            job["vetted"] += 1
-                            increment_counter("sv_total_vetted")
-                        else:
-                            job["review"] += 1
-                            increment_counter("sv_total_review")
-                        log(handle + " -> " + vet_result["outcome"] + " (mem: " + str(_mem_mb()) + " MB)")
-
-                        # Human-speed delay between creators
-                        time.sleep(random.uniform(2, 4))
-
-                    except Exception as e:
-                        log("Error on card: " + str(e))
-                        continue
-                    finally:
-                        card_index += 1
 
                 if drifted:
                     break
