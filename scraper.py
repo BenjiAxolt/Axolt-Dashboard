@@ -512,20 +512,27 @@ def apply_marketplace_filters(page, country, follower_buckets, interaction_rate)
                 for bucket in follower_buckets:
                     ok = _click_filter_option(page, "checkbox", bucket)
                     log(("Selected" if ok else "FAILED to select") + " follower bucket: " + bucket)
-                    time.sleep(0.3)
+                    # Meta's filter re-fetches results over the network on
+                    # every checkbox change — clicking the next box before
+                    # that request lands risks it firing with a stale/
+                    # incomplete selection snapshot. Give each one time to
+                    # actually land instead of racing through all of them.
+                    time.sleep(1.2)
                 # Re-clicking the filter chip to close (instead of Escape) was
                 # tried here to preserve the checkbox selection, but it broke
                 # every subsequent card on the page — almost certainly because
                 # it re-opens the dropdown rather than closing it, leaving an
                 # overlay stuck open that then blocks "View profile" clicks
-                # for the rest of the run. Back to Escape; the follower
-                # filter not hard-excluding out-of-range creators looks like
-                # a genuine Meta UI limitation (soft ranking, not a hard
-                # filter), not something our click sequence can fix — our own
-                # followers_in_buckets() check downstream is the real
-                # enforcement either way.
+                # for the rest of the run. Back to Escape, which does not
+                # cancel the selection here (confirmed: closing this way still
+                # narrows results) — just paired with a longer settle time
+                # before anything reads the card list.
                 page.keyboard.press("Escape")
-                time.sleep(1)
+                try:
+                    page.wait_for_load_state("networkidle", timeout=5000)
+                except Exception:
+                    pass
+                time.sleep(2)
         except Exception as e:
             log("Followers filter error: " + str(e))
 
