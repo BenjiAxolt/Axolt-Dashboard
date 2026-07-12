@@ -789,32 +789,39 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                                 profile_page = page
                                 time.sleep(2)
 
-                            # The post grid appears to lazy-load — without scrolling,
-                            # only whatever renders by default (as few as 3-4 posts)
-                            # is in the DOM, undershooting the 6-thumbnail target.
                             try:
-                                profile_page.evaluate("window.scrollBy(0, 900)")
-                                time.sleep(1.5)
-                            except Exception:
-                                pass
-
-                            body_text = profile_page.inner_text("body")
-                            meta = parse_profile_meta(body_text)
-                            real_name, bio = parse_name_bio(body_text, handle_key)
-                            thumbnails = extract_thumbnails(profile_page.content())
-
-                            insights_el = profile_page.query_selector("[data-pagelet='CreatorProfileInsightsOverview']")
-                            stats = parse_insights_stats(insights_el.inner_text()) if insights_el else {}
-                            followers = parse_followers(stats.get("Total followers"))
-                            engagement_rate = None
-                            if stats.get("Interaction rate"):
+                                # The post grid appears to lazy-load — without
+                                # scrolling, only whatever renders by default
+                                # (as few as 3-4 posts) is in the DOM,
+                                # undershooting the 6-thumbnail target.
                                 try:
-                                    engagement_rate = float(stats["Interaction rate"].replace("%", ""))
+                                    profile_page.evaluate("window.scrollBy(0, 900)")
+                                    time.sleep(1.5)
                                 except Exception:
-                                    engagement_rate = None
+                                    pass
 
-                            if profile_page is not page:
-                                profile_page.close()
+                                body_text = profile_page.inner_text("body")
+                                meta = parse_profile_meta(body_text)
+                                real_name, bio = parse_name_bio(body_text, handle_key)
+                                thumbnails = extract_thumbnails(profile_page.content())
+
+                                insights_el = profile_page.query_selector("[data-pagelet='CreatorProfileInsightsOverview']")
+                                stats = parse_insights_stats(insights_el.inner_text()) if insights_el else {}
+                                followers = parse_followers(stats.get("Total followers"))
+                                engagement_rate = None
+                                if stats.get("Interaction rate"):
+                                    try:
+                                        engagement_rate = float(stats["Interaction rate"].replace("%", ""))
+                                    except Exception:
+                                        engagement_rate = None
+                            finally:
+                                # Guaranteed even on error — an unclosed profile
+                                # tab is a whole extra Chromium renderer process
+                                # left running, and enough of those leaking
+                                # across a long run is what was crashing the
+                                # browser with "Target crashed" errors.
+                                if profile_page is not page:
+                                    profile_page.close()
 
                             # Close the post-detail modal on the main page before continuing
                             close_btn = page.query_selector("[aria-label='Close'], [aria-label='close']")
