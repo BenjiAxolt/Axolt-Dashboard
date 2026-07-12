@@ -888,10 +888,18 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                             time.sleep(random.uniform(2, 4))
 
                         except Exception as e:
+                            if "crashed" in str(e).lower():
+                                # The browser itself is dead — every further
+                                # action on this page will fail the same way,
+                                # so retrying per-card just spams the log
+                                # forever instead of ending the run.
+                                log("Browser target crashed — stopping run: " + str(e))
+                                _stop_requested = True
+                                break
                             log("Error on card: " + str(e))
                             continue
 
-                if drifted:
+                if drifted or _stop_requested:
                     break
 
                 # Delay between keyword searches
