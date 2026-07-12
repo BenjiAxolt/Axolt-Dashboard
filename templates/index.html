@@ -1392,8 +1392,8 @@ function renderCurrentVettingCard() {
       '<span style="font-weight:700;font-size:18px">' + escapeHtml(c.name || c.handle) + '</span>' +
       '<button onclick="showEditVettingName(\'' + c.id + '\')" title="Edit name" style="background:none;border:none;color:#888;cursor:pointer;font-size:13px;padding:0">✎</button>' +
     '</div>' +
-    '<div id="name-edit-' + c.id + '" style="display:none;gap:8px;margin-top:4px">' +
-      '<input type="text" id="name-input-' + c.id + '" value="' + escapeHtml(c.name || '') + '" style="flex:1;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:14px;padding:6px 8px;font-family:inherit;box-sizing:border-box">' +
+    '<div class="add-content-row" id="name-edit-' + c.id + '" style="display:none;margin-top:6px">' +
+      '<input type="text" id="name-input-' + c.id + '" value="' + escapeHtml(c.name || '') + '">' +
       '<button class="save-btn" onclick="saveVettingName(\'' + c.id + '\')">Save</button>' +
       '<button class="cancel-btn" onclick="hideEditVettingName(\'' + c.id + '\')">Cancel</button>' +
     '</div>' +
