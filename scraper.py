@@ -513,13 +513,18 @@ def apply_marketplace_filters(page, country, follower_buckets, interaction_rate)
                     ok = _click_filter_option(page, "checkbox", bucket)
                     log(("Selected" if ok else "FAILED to select") + " follower bucket: " + bucket)
                     time.sleep(0.3)
-                # Escape cancels the pending selection instead of just closing
-                # the dropdown (confirmed this is why the interaction-rate
-                # modal needed its own "Show creators" button) — clicking the
-                # filter chip again to toggle the dropdown closed keeps the
-                # checkbox selections committed instead of discarding them.
-                if not _open_filter_dropdown(page, "Followers"):
-                    page.keyboard.press("Escape")
+                # Re-clicking the filter chip to close (instead of Escape) was
+                # tried here to preserve the checkbox selection, but it broke
+                # every subsequent card on the page — almost certainly because
+                # it re-opens the dropdown rather than closing it, leaving an
+                # overlay stuck open that then blocks "View profile" clicks
+                # for the rest of the run. Back to Escape; the follower
+                # filter not hard-excluding out-of-range creators looks like
+                # a genuine Meta UI limitation (soft ranking, not a hard
+                # filter), not something our click sequence can fix — our own
+                # followers_in_buckets() check downstream is the real
+                # enforcement either way.
+                page.keyboard.press("Escape")
                 time.sleep(1)
         except Exception as e:
             log("Followers filter error: " + str(e))
