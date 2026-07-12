@@ -499,9 +499,19 @@ def apply_marketplace_filters(page, country, follower_buckets, interaction_rate)
                 log("Could not open Followers filter dropdown")
             else:
                 time.sleep(1)
+                # Diagnostic: dump the dropdown's own visible option text so we
+                # can see, from the run log alone, whether our bucket labels
+                # ("10K-25K" etc.) actually match what Meta renders — without
+                # needing anyone to manually inspect DevTools again.
+                try:
+                    dropdown_text = page.locator("[role='dialog'], [role='menu'], [role='listbox']").last.inner_text()
+                    log("Followers dropdown text: " + dropdown_text.replace("\n", " | ")[:400])
+                except Exception:
+                    log("Could not read Followers dropdown text for diagnostics")
+
                 for bucket in follower_buckets:
-                    if not _click_filter_option(page, "checkbox", bucket):
-                        log("Could not select follower bucket: " + bucket)
+                    ok = _click_filter_option(page, "checkbox", bucket)
+                    log(("Selected" if ok else "FAILED to select") + " follower bucket: " + bucket)
                     time.sleep(0.3)
                 page.keyboard.press("Escape")
                 time.sleep(1)
