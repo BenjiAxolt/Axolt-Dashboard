@@ -328,6 +328,18 @@ def parse_profile_meta(body_text):
     return meta
 
 
+# Meta shows an optional "highlight" chip (a quality-signal badge, not the
+# creator's name) right where the display name would otherwise be — present
+# on some profiles, absent on others, which is why a fixed offset after the
+# handle sometimes grabbed the badge text instead of the real name.
+_HIGHLIGHT_BADGES = {
+    "strong hooks", "high engagement", "consistent poster", "consistent posting",
+    "fast growing", "fast growing audience", "highly responsive", "great retention",
+    "loyal audience", "high completion rate", "brand safe", "brand safe content",
+    "responsive creator", "growing audience", "high watch time", "quick responder",
+}
+
+
 def parse_name_bio(body_text, handle_key):
     """Extracts real display name and bio, which sit right after the handle in
     the profile page's text, before the country/gender/age line cluster starts."""
@@ -344,6 +356,8 @@ def parse_name_bio(body_text, handle_key):
 
     idx += 1
     if idx < len(lines) and lines[idx] == "Responsive":
+        idx += 1
+    while idx < len(lines) and lines[idx].lower() in _HIGHLIGHT_BADGES:
         idx += 1
     name = lines[idx] if idx < len(lines) else ""
     idx += 1
