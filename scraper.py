@@ -513,7 +513,13 @@ def apply_marketplace_filters(page, country, follower_buckets, interaction_rate)
                     ok = _click_filter_option(page, "checkbox", bucket)
                     log(("Selected" if ok else "FAILED to select") + " follower bucket: " + bucket)
                     time.sleep(0.3)
-                page.keyboard.press("Escape")
+                # Escape cancels the pending selection instead of just closing
+                # the dropdown (confirmed this is why the interaction-rate
+                # modal needed its own "Show creators" button) — clicking the
+                # filter chip again to toggle the dropdown closed keeps the
+                # checkbox selections committed instead of discarding them.
+                if not _open_filter_dropdown(page, "Followers"):
+                    page.keyboard.press("Escape")
                 time.sleep(1)
         except Exception as e:
             log("Followers filter error: " + str(e))
