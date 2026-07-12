@@ -997,7 +997,7 @@ function fetchInvoiceReport(url) {
     }
 
     var body = '';
-    body += section('Seeded (Intake Survey Filled)', d.delivered, function(x){
+    body += section('Delivered (Product Delivered)', d.delivered, function(x){
       return '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1a1a24"><span>' + escapeHtml(x.name) + '</span><span style="color:#666">' + x.date + '</span></div>';
     });
     body += section('Affiliate Joined', d.affiliate, function(x){
