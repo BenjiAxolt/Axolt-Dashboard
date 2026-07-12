@@ -882,16 +882,17 @@ def vetting_move_to_vetted():
     email = (data.get("email") or "").strip()
     if not page_id:
         return jsonify({"error": "Missing id"}), 400
-    if not email:
-        return jsonify({"error": "Email is required to move to Vetted"}), 400
+
+    props = {
+        "Outcome": {"select": {"name": "Vetted"}},
+        "Flag Note": {"rich_text": [{"text": {"content": "No email on file — DM only"}}] if not email else []},
+    }
+    if email:
+        props["Email"] = {"email": email}
     requests.patch(
         "https://api.notion.com/v1/pages/" + page_id,
         headers=NOTION_HEADERS,
-        json={"properties": {
-            "Outcome": {"select": {"name": "Vetted"}},
-            "Email": {"email": email},
-            "Flag Note": {"rich_text": []},
-        }},
+        json={"properties": props},
     )
     return jsonify({"status": "moved"})
 

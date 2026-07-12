@@ -1400,7 +1400,10 @@ function renderCurrentVettingCard() {
     '<div style="font-size:12px;color:#777;margin-top:3px">' + escapeHtml(c.handle) + (c.niche ? ' · ' + escapeHtml(c.niche) : '') + '</div>' +
     (stats ? '<div style="font-size:12px;color:#999;margin-top:8px">' + stats + '</div>' : '') +
     (tags ? '<div style="margin-top:6px">' + tags + '</div>' : '') +
-    (c.email && currentVettingOutcome === 'Vetted' ? '<div style="font-size:12px;color:#639922;margin-top:8px">' + escapeHtml(c.email) + '</div>' : '') +
+    (currentVettingOutcome === 'Vetted' ? (
+      c.email ? '<div style="font-size:12px;color:#639922;margin-top:8px">' + escapeHtml(c.email) + '</div>'
+              : '<div style="font-size:12px;color:#d4a72c;margin-top:8px">⚑ ' + escapeHtml(c.flag_note || 'No email — DM only') + '</div>'
+    ) : '') +
     thumbsHtml +
     (c.analysis ? '<div style="font-size:12px;color:#888;line-height:1.5;margin-top:8px">' + escapeHtml(c.analysis) + '</div>' : '') +
     (c.profile_url ? '<a href="' + escapeHtml(c.profile_url) + '" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:12px;font-size:12px;color:#ff8f94">View profile →</a>' : '') +
@@ -1448,7 +1451,7 @@ function skipCreator(id) {
 
 function moveToVetted(id) {
   var email = document.getElementById('email-' + id).value.trim();
-  if (!email) { alert('Enter an email before moving to Vetted.'); return; }
+  if (!email && !confirm('No email on file — this creator will only be reachable by DM. Move to Vetted anyway?')) return;
   fetch('/api/vetting/move-to-vetted', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({id: id, email: email})
