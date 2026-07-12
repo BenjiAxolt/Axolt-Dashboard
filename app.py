@@ -830,6 +830,29 @@ def vetting_approve():
     return jsonify({"status": "approved"})
 
 
+@app.route("/api/vetting/rename", methods=["POST"])
+@login_required
+def vetting_rename():
+    """The scraper's name extraction occasionally grabs one of Meta's
+    highlight badges (e.g. "Strong hooks") instead of the creator's real
+    display name — this lets a reviewer correct it by hand as they go."""
+    data = request.json or {}
+    page_id = data.get("id")
+    name = (data.get("name") or "").strip()
+    if not page_id:
+        return jsonify({"error": "Missing id"}), 400
+    if not name:
+        return jsonify({"error": "Name cannot be empty"}), 400
+    requests.patch(
+        "https://api.notion.com/v1/pages/" + page_id,
+        headers=NOTION_HEADERS,
+        json={"properties": {
+            "Name": {"title": [{"text": {"content": name[:2000]}}]},
+        }},
+    )
+    return jsonify({"status": "renamed", "name": name})
+
+
 @app.route("/api/vetting/skip", methods=["POST"])
 @login_required
 def vetting_skip():
