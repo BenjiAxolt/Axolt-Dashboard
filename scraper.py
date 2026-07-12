@@ -606,7 +606,6 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                     "--disable-default-apps",
                     "--disable-sync",
                     "--disable-features=site-per-process,TranslateUI",
-                    "--js-flags=--max-old-space-size=256",
                 ],
             )
             context = browser.new_context(
