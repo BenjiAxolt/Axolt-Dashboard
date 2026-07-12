@@ -24,6 +24,37 @@ NOTION_HEADERS = {
     "Content-Type": "application/json",
 }
 
+_SCROLL_RESULTS_JS = """
+() => {
+    const card = document.querySelector("a[aria-label^='Open portfolio for ']");
+    let el = card ? card.parentElement : null;
+    while (el && el !== document.body) {
+        const style = getComputedStyle(el);
+        const scrollable = (style.overflowY === 'auto' || style.overflowY === 'scroll');
+        if (scrollable && el.scrollHeight > el.clientHeight + 50) {
+            el.scrollTop = el.scrollHeight;
+            return 'container';
+        }
+        el = el.parentElement;
+    }
+    window.scrollTo(0, document.body.scrollHeight);
+    return 'window';
+}
+"""
+
+
+def _scroll_results(page):
+    """Meta's card grid is rendered inside its own internally-scrollable
+    div (the outer page/toolbar layout is fixed), so scrolling window/body
+    is a no-op there — this walks up from a card element to find the real
+    scrollable ancestor and scrolls that instead, falling back to window
+    scroll only if no such container is found."""
+    try:
+        return page.evaluate(_SCROLL_RESULTS_JS)
+    except Exception:
+        return None
+
+
 MARKETPLACE_PREFIX = "https://business.facebook.com/latest/creator_marketplace"
 MARKETPLACE_URL = os.environ.get(
     "MARKETPLACE_URL",
@@ -623,7 +654,7 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                 # Scroll to load results
                 drifted = False
                 for _ in range(3):
-                    page.evaluate("window.scrollBy(0, 800)")
+                    _scroll_results(page)
                     time.sleep(random.uniform(1, 2))
                     if not page.url.startswith(MARKETPLACE_PREFIX):
                         drifted = True
@@ -660,7 +691,9 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                             new_batch.append((handle, handle_key, card))
 
                     if not new_batch:
-                        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                        scroll_kind = _scroll_results(page)
+                        if stale_scrolls == 0:
+                            log("Scroll target: " + str(scroll_kind))
                         time.sleep(random.uniform(3, 4.5))
                         if not page.url.startswith(MARKETPLACE_PREFIX):
                             log("SAFETY STOP: navigated outside the Marketplace (" + page.url + "). Aborting run.")
