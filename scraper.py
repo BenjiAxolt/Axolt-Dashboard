@@ -802,9 +802,11 @@ def run_scrape(keywords, limit, cookies_json, country, filters=None):
                                 profile_page = new_page_info.value
                                 profile_page.wait_for_load_state()
                                 time.sleep(2)
-                            except Exception:
+                                log(handle + ": profile opened in new tab (" + profile_page.url + ")")
+                            except Exception as e:
                                 profile_page = page
                                 time.sleep(2)
+                                log(handle + ": no new tab detected, falling back to same page (" + str(e) + ")")
 
                             try:
                                 # The post grid appears to lazy-load — without
