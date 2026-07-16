@@ -94,7 +94,7 @@
   /* TWO-COL */
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
-  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .three-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
   @media (max-width: 1200px) { .three-col { grid-template-columns: 1fr; } }
 
   /* PANELS */
@@ -372,7 +372,7 @@
         <button id="scrape-stop-btn" onclick="stopScrape()" style="background:transparent;border:1px solid #b33;border-radius:6px;color:#e05a5a;padding:5px 12px;font-size:11px;font-family:inherit;cursor:pointer;display:none;margin-right:6px">Stop</button>
         <button id="scrape-reset-btn" onclick="resetScrapeLog()" style="background:transparent;border:1px solid #2a2a38;border-radius:6px;color:#888;padding:5px 12px;font-size:11px;font-family:inherit;cursor:pointer">Reset</button>
       </div>
-      <div id="scrape-log" style="background:#0f0f13;border-radius:6px;padding:10px;flex:1;min-height:200px;overflow-y:auto;font-size:11px;color:#666;font-family:monospace;line-height:1.6">Waiting to start...</div>
+      <div id="scrape-log" style="background:#0f0f13;border-radius:6px;padding:10px;flex:1;min-height:200px;overflow-y:auto;font-size:11px;color:#666;font-family:monospace;line-height:1.6;overflow-wrap:anywhere">Waiting to start...</div>
     </div>
 
     <div class="panel" style="display:flex;flex-direction:column;min-height:0">
