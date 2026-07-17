@@ -470,7 +470,7 @@ def _follower_bucket_label_variants(name):
     return [name, lo + " – " + hi]
 
 
-def _click_filter_option(page, role, name):
+def _click_filter_option(page, role, name, debug_label=None):
     """Meta's filter checkboxes/radios expose real accessible roles/names
     (confirmed via DevTools — the class names themselves are Meta's
     auto-generated atomic CSS and change per build, useless as selectors).
@@ -479,11 +479,14 @@ def _click_filter_option(page, role, name):
     try:
         page.get_by_role(role, name=name, exact=True).click(timeout=5000)
         return True
-    except Exception:
+    except Exception as e1:
         try:
             page.get_by_text(name, exact=(role != "checkbox")).first.click(timeout=5000)
             return True
-        except Exception:
+        except Exception as e2:
+            if debug_label:
+                log(debug_label + " click failed for '" + name + "' — role attempt: " +
+                    str(e1).split("\n")[0] + " | text attempt: " + str(e2).split("\n")[0])
             return False
 
 
@@ -526,7 +529,7 @@ def apply_marketplace_filters(page, country, follower_buckets, interaction_rate)
                 for bucket in follower_buckets:
                     ok = False
                     for variant in _follower_bucket_label_variants(bucket):
-                        ok = _click_filter_option(page, "checkbox", variant)
+                        ok = _click_filter_option(page, "checkbox", variant, debug_label="Followers")
                         if ok:
                             break
                     log(("Selected" if ok else "FAILED to select") + " follower bucket: " + bucket)
