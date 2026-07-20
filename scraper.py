@@ -485,8 +485,17 @@ def _click_filter_option(page, role, name, debug_label=None):
             return True
         except Exception as e2:
             if debug_label:
-                log(debug_label + " click failed for '" + name + "' — role attempt: " +
-                    str(e1).split("\n")[0] + " | text attempt: " + str(e2).split("\n")[0])
+                try:
+                    role_count = page.get_by_role(role, name=name, exact=True).count()
+                except Exception:
+                    role_count = "?"
+                try:
+                    text_count = page.get_by_text(name, exact=(role != "checkbox")).count()
+                except Exception:
+                    text_count = "?"
+                log(debug_label + " click failed for '" + name + "' — role matches: " + str(role_count) +
+                    ", text matches: " + str(text_count) + " | role error: " +
+                    str(e1).split("\n")[0] + " | text error: " + str(e2).split("\n")[0])
             return False
 
 
