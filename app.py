@@ -978,8 +978,8 @@ def schedule_followups(start_date, label_prefix, name, offsets):
         calendar_store.create_event(label_prefix + " FU" + str(i) + " — " + name, d.isoformat() + "T09:00:00")
 
 
-def schedule_outreach_chain(name):
-    today = datetime.now(timezone.utc).date()
+def schedule_outreach_chain(name, start_date=None):
+    today = start_date or datetime.now(timezone.utc).date()
     nudge_date = add_business_days(today, 3)
     calendar_store.create_event("Instagram Nudge — " + name, nudge_date.isoformat() + "T09:00:00")
     schedule_followups(nudge_date, "Outreach", name, [2, 3, 3])
@@ -1072,6 +1072,43 @@ def outreach_send():
     )
     schedule_outreach_chain(creator["name"] or creator["handle"])
     return jsonify({"status": "sent"})
+
+
+@app.route("/api/outreach/mark-contacted", methods=["POST"])
+@login_required
+def outreach_mark_contacted():
+    """For outreach done outside the dashboard (DM, a personal email, etc.)
+    — records the same Stage/date change and follow-up chain that a normal
+    Send would, backdated to whenever the contact actually happened rather
+    than today, so the follow-up schedule lines up with reality."""
+    data = request.json or {}
+    page_id = data.get("id")
+    date_str = (data.get("date") or "").strip()
+    if not page_id:
+        return jsonify({"error": "Missing id"}), 400
+
+    if date_str:
+        try:
+            contacted_date = datetime.fromisoformat(date_str).date()
+        except ValueError:
+            return jsonify({"error": "Invalid date: " + date_str}), 400
+    else:
+        contacted_date = datetime.now(timezone.utc).date()
+
+    r = requests.get("https://api.notion.com/v1/pages/" + page_id, headers=NOTION_HEADERS)
+    page = r.json()
+    creator = outreach_page_to_dict(page)
+
+    requests.patch(
+        "https://api.notion.com/v1/pages/" + page_id,
+        headers=NOTION_HEADERS,
+        json={"properties": {
+            "Stage": {"select": {"name": "Contacted"}},
+            "Outreach Sent": {"date": {"start": contacted_date.isoformat()}},
+        }},
+    )
+    schedule_outreach_chain(creator["name"] or creator["handle"], start_date=contacted_date)
+    return jsonify({"status": "marked"})
 
 
 @app.route("/api/scrape/start", methods=["POST"])

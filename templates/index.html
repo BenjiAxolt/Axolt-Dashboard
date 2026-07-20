@@ -803,6 +803,12 @@ function renderOutreachCards(creators) {
       '<button onclick="generateOutreachDraft(\'' + c.id + '\')" style="flex:1;background:#1e1e28;border:1px solid #2a2a38;color:#ccc;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">' + (c.draft ? 'Regenerate Draft' : 'Generate Draft') + '</button>' +
       '<button onclick="sendOutreach(\'' + c.id + '\')" style="flex:1;background:#639922;color:#fff;border:none;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">Send</button>' +
       '</div>' +
+      '<button onclick="showMarkContacted(\'' + c.id + '\')" style="background:none;border:none;color:#888;font-size:11px;padding:4px 0;cursor:pointer;text-align:left">I already reached out myself →</button>' +
+      '<div class="add-content-row" id="mark-contacted-' + c.id + '" style="display:none">' +
+      '<input type="date" id="contacted-date-' + c.id + '" value="' + new Date().toISOString().slice(0, 10) + '">' +
+      '<button class="save-btn" onclick="markOutreachContacted(\'' + c.id + '\')">Confirm</button>' +
+      '<button class="cancel-btn" onclick="hideMarkContacted(\'' + c.id + '\')">Cancel</button>' +
+      '</div>' +
       '<div id="outreach-status-' + c.id + '" style="font-size:11px"></div>' +
       '</div>';
   }).join('');
@@ -819,6 +825,34 @@ function generateOutreachDraft(id) {
   }).catch(function(){
     status.style.color = '#E24B4A';
     status.textContent = 'Failed to generate draft.';
+  });
+}
+
+function showMarkContacted(id) {
+  document.getElementById('mark-contacted-' + id).style.display = 'flex';
+}
+
+function hideMarkContacted(id) {
+  document.getElementById('mark-contacted-' + id).style.display = 'none';
+}
+
+function markOutreachContacted(id) {
+  var date = document.getElementById('contacted-date-' + id).value;
+  if (!date) { alert('Pick a date.'); return; }
+  var status = document.getElementById('outreach-status-' + id);
+  status.style.color = '#999';
+  status.textContent = 'Saving...';
+  fetch('/api/outreach/mark-contacted', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: id, date: date})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { status.style.color = '#E24B4A'; status.textContent = d.error; return; }
+    var card = document.getElementById('outreach-card-' + id);
+    if (card) card.remove();
+    loadOutreach();
+  }).catch(function(){
+    status.style.color = '#E24B4A';
+    status.textContent = 'Failed to save.';
   });
 }
 
