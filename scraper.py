@@ -477,11 +477,11 @@ def _click_filter_option(page, role, name, debug_label=None):
     Falls back to matching visible text if the role guess is wrong, since
     that's still stable and matches our own UI labels exactly."""
     try:
-        page.get_by_role(role, name=name, exact=True).click(timeout=5000)
+        page.get_by_role(role, name=name, exact=True).click(timeout=12000)
         return True
     except Exception as e1:
         try:
-            page.get_by_text(name, exact=(role != "checkbox")).first.click(timeout=5000)
+            page.get_by_text(name, exact=(role != "checkbox")).first.click(timeout=12000)
             return True
         except Exception as e2:
             if debug_label:
