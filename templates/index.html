@@ -794,15 +794,18 @@ function renderOutreachCards(creators) {
   }
   empty.style.display = 'none';
   container.innerHTML = creators.map(function(c){
+    var emailBlock = c.email
+      ? '<div style="font-size:11px;color:#639922">' + escapeHtml(c.email) + '</div>' +
+        '<textarea id="outreach-draft-' + c.id + '" rows="8" placeholder="Click Generate Draft to have Claude write a personalized email..." style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit;resize:vertical;line-height:1.5">' + escapeHtml(c.draft) + '</textarea>' +
+        '<div style="display:flex;gap:8px">' +
+        '<button onclick="generateOutreachDraft(\'' + c.id + '\')" style="flex:1;background:#1e1e28;border:1px solid #2a2a38;color:#ccc;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">' + (c.draft ? 'Regenerate Draft' : 'Generate Draft') + '</button>' +
+        '<button onclick="sendOutreach(\'' + c.id + '\')" style="flex:1;background:#639922;color:#fff;border:none;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">Send</button>' +
+        '</div>'
+      : '<div style="font-size:11px;color:#d4a72c">⚑ No email on file — DM only</div>';
     return '<div class="creator-card" id="outreach-card-' + c.id + '">' +
       '<div style="font-weight:600;font-size:14px">' + escapeHtml(c.name || c.handle) + '</div>' +
       '<div style="font-size:11px;color:#777">' + escapeHtml(c.handle) + (c.niche ? ' · ' + escapeHtml(c.niche) : '') + '</div>' +
-      '<div style="font-size:11px;color:#639922">' + escapeHtml(c.email) + '</div>' +
-      '<textarea id="outreach-draft-' + c.id + '" rows="8" placeholder="Click Generate Draft to have Claude write a personalized email..." style="width:100%;background:#1e1e28;border:1px solid #2a2a38;border-radius:6px;color:#ddd;font-size:12px;padding:8px 10px;font-family:inherit;resize:vertical;line-height:1.5">' + escapeHtml(c.draft) + '</textarea>' +
-      '<div style="display:flex;gap:8px">' +
-      '<button onclick="generateOutreachDraft(\'' + c.id + '\')" style="flex:1;background:#1e1e28;border:1px solid #2a2a38;color:#ccc;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">' + (c.draft ? 'Regenerate Draft' : 'Generate Draft') + '</button>' +
-      '<button onclick="sendOutreach(\'' + c.id + '\')" style="flex:1;background:#639922;color:#fff;border:none;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;cursor:pointer">Send</button>' +
-      '</div>' +
+      emailBlock +
       '<button onclick="showMarkContacted(\'' + c.id + '\')" style="background:none;border:none;color:#888;font-size:11px;padding:4px 0;cursor:pointer;text-align:left">I already reached out myself →</button>' +
       '<div class="add-content-row" id="mark-contacted-' + c.id + '" style="display:none">' +
       '<input type="date" id="contacted-date-' + c.id + '" value="' + new Date().toISOString().slice(0, 10) + '">' +

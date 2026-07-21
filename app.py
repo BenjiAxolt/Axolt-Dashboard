@@ -1010,11 +1010,12 @@ def outreach_page_to_dict(page):
 @app.route("/api/outreach/list")
 @login_required
 def outreach_list():
+    # No email requirement here — a Lead with no email on file can't get a
+    # Send button, but still needs to show up so a DM'd-outside-the-app
+    # outreach can be logged via "I already reached out myself" and get its
+    # follow-up chain scheduled on the calendar.
     pages = query_db(INFLUENCER_DB, filter_body={
-        "and": [
-            {"property": "Stage", "select": {"equals": "Lead"}},
-            {"property": "Email", "email": {"is_not_empty": True}},
-        ]
+        "property": "Stage", "select": {"equals": "Lead"}
     })
     return jsonify({"creators": [outreach_page_to_dict(p) for p in pages]})
 
