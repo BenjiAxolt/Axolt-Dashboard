@@ -456,18 +456,17 @@ def _open_filter_dropdown(page, label):
         return False
 
 
-def _follower_bucket_label_variants(name):
-    """Meta renders bucket labels inconsistently: buckets under 100K use a
-    plain hyphen with no spaces ("10K-25K"), but 100K+ buckets use a spaced
-    en dash ("100K – 250K") — confirmed via the dropdown's own visible text
-    dumped in the run log. Our stored bucket names all use the plain-hyphen
-    form (matching the UI checkboxes and FOLLOWER_BUCKET_RANGES), so this
-    generates the en-dash variant to try as a fallback when the exact-match
-    click fails, rather than only ever failing silently on 100K-250K/250K-1M."""
+def _follower_bucket_candidates(name):
+    """Meta renders follower buckets as two different widget types: buckets
+    under 100K are real checkboxes named exactly like our stored bucket
+    string ("10K-25K", no spaces), but 100K+ buckets are listbox `option`
+    elements (confirmed via DevTools Accessibility panel — Role: option)
+    with a differently-spaced name ("100K - 250K", plain hyphen with a
+    space on each side). Returns (role, name) pairs to try in order."""
     if "-" not in name:
-        return [name]
+        return [("checkbox", name)]
     lo, hi = name.split("-", 1)
-    return [name, lo + " – " + hi]
+    return [("checkbox", name), ("option", lo + " - " + hi)]
 
 
 def _click_filter_option(page, role, name, debug_label=None):
@@ -537,8 +536,8 @@ def apply_marketplace_filters(page, country, follower_buckets, interaction_rate)
 
                 for bucket in follower_buckets:
                     ok = False
-                    for variant in _follower_bucket_label_variants(bucket):
-                        ok = _click_filter_option(page, "checkbox", variant, debug_label="Followers")
+                    for role, variant in _follower_bucket_candidates(bucket):
+                        ok = _click_filter_option(page, role, variant, debug_label="Followers")
                         if ok:
                             break
                     log(("Selected" if ok else "FAILED to select") + " follower bucket: " + bucket)
