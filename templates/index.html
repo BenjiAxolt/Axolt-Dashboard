@@ -803,8 +803,22 @@ function renderOutreachCards(creators) {
         '</div>'
       : '<div style="font-size:11px;color:#d4a72c">⚑ No email on file — DM only</div>';
     return '<div class="creator-card" id="outreach-card-' + c.id + '">' +
-      '<div style="font-weight:600;font-size:14px">' + escapeHtml(c.name || c.handle) + '</div>' +
-      '<div style="font-size:11px;color:#777">' + escapeHtml(c.handle) + (c.niche ? ' · ' + escapeHtml(c.niche) : '') + '</div>' +
+      '<div id="outreach-display-' + c.id + '" style="display:flex;align-items:center;gap:8px">' +
+        '<div>' +
+          '<div style="font-weight:600;font-size:14px">' + escapeHtml(c.name || c.handle) + '</div>' +
+          '<div style="font-size:11px;color:#777">' + escapeHtml(c.handle) + (c.niche ? ' · ' + escapeHtml(c.niche) : '') + '</div>' +
+        '</div>' +
+        '<button onclick="showEditOutreachDetails(\'' + c.id + '\')" title="Edit details" style="background:none;border:none;color:#888;cursor:pointer;font-size:13px;padding:0;margin-left:auto">✎</button>' +
+      '</div>' +
+      '<div id="outreach-edit-' + c.id + '" style="display:none;flex-direction:column;gap:6px;margin:6px 0">' +
+        '<input type="text" id="outreach-name-' + c.id + '" placeholder="Name" value="' + escapeHtml(c.name) + '" style="background:#1e1e28;border:1px solid #2a2a38;border-radius:5px;color:#ddd;font-size:12px;padding:6px 8px;font-family:inherit">' +
+        '<input type="text" id="outreach-handle-' + c.id + '" placeholder="@handle" value="' + escapeHtml(c.handle) + '" style="background:#1e1e28;border:1px solid #2a2a38;border-radius:5px;color:#ddd;font-size:12px;padding:6px 8px;font-family:inherit">' +
+        '<input type="email" id="outreach-email-' + c.id + '" placeholder="Email (optional)" value="' + escapeHtml(c.email) + '" style="background:#1e1e28;border:1px solid #2a2a38;border-radius:5px;color:#ddd;font-size:12px;padding:6px 8px;font-family:inherit">' +
+        '<div style="display:flex;gap:8px">' +
+        '<button class="save-btn" onclick="saveOutreachDetails(\'' + c.id + '\')" style="flex:1">Save</button>' +
+        '<button class="cancel-btn" onclick="hideEditOutreachDetails(\'' + c.id + '\')" style="flex:1">Cancel</button>' +
+        '</div>' +
+      '</div>' +
       emailBlock +
       '<button onclick="showMarkContacted(\'' + c.id + '\')" style="background:none;border:none;color:#888;font-size:11px;padding:4px 0;cursor:pointer;text-align:left">I already reached out myself →</button>' +
       '<div class="add-content-row" id="mark-contacted-' + c.id + '" style="display:none">' +
@@ -828,6 +842,30 @@ function generateOutreachDraft(id) {
   }).catch(function(){
     status.style.color = '#E24B4A';
     status.textContent = 'Failed to generate draft.';
+  });
+}
+
+function showEditOutreachDetails(id) {
+  document.getElementById('outreach-display-' + id).style.display = 'none';
+  document.getElementById('outreach-edit-' + id).style.display = 'flex';
+}
+
+function hideEditOutreachDetails(id) {
+  document.getElementById('outreach-edit-' + id).style.display = 'none';
+  document.getElementById('outreach-display-' + id).style.display = 'flex';
+}
+
+function saveOutreachDetails(id) {
+  var name = document.getElementById('outreach-name-' + id).value.trim();
+  var handle = document.getElementById('outreach-handle-' + id).value.trim();
+  var email = document.getElementById('outreach-email-' + id).value.trim();
+  if (!name) { alert('Name cannot be empty.'); return; }
+  fetch('/api/influencers/' + id + '/details', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: name, handle: handle, email: email})
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.error) { alert(d.error); return; }
+    loadOutreach();
   });
 }
 

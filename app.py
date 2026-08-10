@@ -621,6 +621,33 @@ def influencers_set_stage(page_id):
     return jsonify({"status": "updated", "stage": stage})
 
 
+@app.route("/api/influencers/<page_id>/details", methods=["POST"])
+@login_required
+def influencers_set_details(page_id):
+    """Lets a reviewer correct a creator's Name/Handle/Email by hand — the
+    scraper's extraction isn't always right (e.g. Meta highlight badges
+    grabbed instead of the real name), and this needed fixing after the
+    fact from the Outreach tab too, not just Vetting."""
+    data = request.json or {}
+    name = (data.get("name") or "").strip()
+    handle = (data.get("handle") or "").strip()
+    email = (data.get("email") or "").strip()
+    if not name:
+        return jsonify({"error": "Name cannot be empty"}), 400
+
+    props = {
+        "Name": {"title": [{"text": {"content": name[:2000]}}]},
+        "Handle": {"rich_text": [{"text": {"content": handle[:2000]}}]},
+        "Email": {"email": email or None},
+    }
+    requests.patch(
+        "https://api.notion.com/v1/pages/" + page_id,
+        headers=NOTION_HEADERS,
+        json={"properties": props},
+    )
+    return jsonify({"status": "updated", "name": name, "handle": handle, "email": email})
+
+
 @app.route("/api/reports/invoice")
 @login_required
 def invoice_report():
