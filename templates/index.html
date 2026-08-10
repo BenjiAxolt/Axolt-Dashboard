@@ -811,12 +811,12 @@ function renderOutreachCards(creators) {
         '<button onclick="showEditOutreachDetails(\'' + c.id + '\')" title="Edit details" style="background:none;border:none;color:#888;cursor:pointer;font-size:13px;padding:0;margin-left:auto">✎</button>' +
       '</div>' +
       '<div id="outreach-edit-' + c.id + '" style="display:none;flex-direction:column;gap:6px;margin:6px 0">' +
-        '<input type="text" id="outreach-name-' + c.id + '" placeholder="Name" value="' + escapeHtml(c.name) + '" style="background:#1e1e28;border:1px solid #2a2a38;border-radius:5px;color:#ddd;font-size:12px;padding:6px 8px;font-family:inherit">' +
-        '<input type="text" id="outreach-handle-' + c.id + '" placeholder="@handle" value="' + escapeHtml(c.handle) + '" style="background:#1e1e28;border:1px solid #2a2a38;border-radius:5px;color:#ddd;font-size:12px;padding:6px 8px;font-family:inherit">' +
-        '<input type="email" id="outreach-email-' + c.id + '" placeholder="Email (optional)" value="' + escapeHtml(c.email) + '" style="background:#1e1e28;border:1px solid #2a2a38;border-radius:5px;color:#ddd;font-size:12px;padding:6px 8px;font-family:inherit">' +
-        '<div style="display:flex;gap:8px">' +
-        '<button class="save-btn" onclick="saveOutreachDetails(\'' + c.id + '\')" style="flex:1">Save</button>' +
-        '<button class="cancel-btn" onclick="hideEditOutreachDetails(\'' + c.id + '\')" style="flex:1">Cancel</button>' +
+        '<input type="text" id="outreach-name-' + c.id + '" placeholder="Name" value="' + escapeHtml(c.name) + '" style="background:#1e1e28;border:1px solid #2a2a38;border-radius:5px;color:#ddd;font-size:11px;padding:5px 8px;font-family:inherit">' +
+        '<input type="text" id="outreach-handle-' + c.id + '" placeholder="@handle" value="' + escapeHtml(c.handle) + '" style="background:#1e1e28;border:1px solid #2a2a38;border-radius:5px;color:#ddd;font-size:11px;padding:5px 8px;font-family:inherit">' +
+        '<input type="email" id="outreach-email-' + c.id + '" placeholder="Email (optional)" value="' + escapeHtml(c.email) + '" style="background:#1e1e28;border:1px solid #2a2a38;border-radius:5px;color:#ddd;font-size:11px;padding:5px 8px;font-family:inherit">' +
+        '<div class="add-content-row">' +
+        '<button class="save-btn" onclick="saveOutreachDetails(\'' + c.id + '\')">Save</button>' +
+        '<button class="cancel-btn" onclick="hideEditOutreachDetails(\'' + c.id + '\')">Cancel</button>' +
         '</div>' +
       '</div>' +
       emailBlock +
