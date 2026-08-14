@@ -309,7 +309,7 @@ def dashboard_data():
     total_inf    = len(inf_pages) + TEST_OFFSET
     contacted    = sum(1 for p in inf_pages if get_prop(p, "Stage") in CONTACTED) + TEST_OFFSET
     intake       = sum(1 for p in inf_pages if get_prop(p, "Stage") in INTAKE)
-    delivered    = 12  # TEMPORARY — hardcoded until the real count discrepancy is investigated; was: sum(1 for p in inf_pages if get_prop(p, "Stage") in DELIVERED)
+    delivered    = sum(1 for p in inf_pages if get_prop(p, "Stage") in DELIVERED)
     survey_14    = sum(1 for p in inf_pages if get_prop(p, "Stage") in S14)
     survey_30    = sum(1 for p in inf_pages if get_prop(p, "Stage") in S30)
     declined_inf = sum(1 for p in inf_pages if get_prop(p, "Stage") == "Declined")
