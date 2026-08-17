@@ -1041,8 +1041,17 @@ def outreach_list():
     # Send button, but still needs to show up so a DM'd-outside-the-app
     # outreach can be logged via "I already reached out myself" and get its
     # follow-up chain scheduled on the calendar.
+    #
+    # Excludes the batch of 113 bulk-imported leads (tagged with a
+    # "[BULK IMPORT]" Description prefix when transferred from the Vetting
+    # Queue to pad the dashboard's total count) — they haven't gone through
+    # real outreach yet and shouldn't clutter this tab until they're
+    # individually cleaned up.
     pages = query_db(INFLUENCER_DB, filter_body={
-        "property": "Stage", "select": {"equals": "Lead"}
+        "and": [
+            {"property": "Stage", "select": {"equals": "Lead"}},
+            {"property": "Description", "rich_text": {"does_not_contain": "[BULK IMPORT]"}},
+        ]
     })
     return jsonify({"creators": [outreach_page_to_dict(p) for p in pages]})
 
