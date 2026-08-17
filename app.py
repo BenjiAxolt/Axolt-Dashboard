@@ -305,8 +305,8 @@ def dashboard_data():
     S14       = ["14-Day Survey Sent", "14-Day Survey Filled"]
     S30       = ["30-Day Survey Sent", "30-Day Survey Filled"]
 
-    TEST_OFFSET = 113  # TEMPORARY — remove this line and the two uses below to revert
-    total_inf    = len(inf_pages) + TEST_OFFSET
+    TEST_OFFSET = 113  # TEMPORARY — remove this line and the use below to revert
+    total_inf    = len(inf_pages)
     contacted    = sum(1 for p in inf_pages if get_prop(p, "Stage") in CONTACTED) + TEST_OFFSET
     intake       = sum(1 for p in inf_pages if get_prop(p, "Stage") in INTAKE)
     delivered    = sum(1 for p in inf_pages if get_prop(p, "Stage") in DELIVERED)
