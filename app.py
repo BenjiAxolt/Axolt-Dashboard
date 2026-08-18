@@ -302,7 +302,10 @@ def dashboard_data():
                  "30-Day Survey Sent", "30-Day Survey Filled"]
     DELIVERED = ["Product Delivered", "14-Day Survey Sent", "14-Day Survey Filled",
                  "30-Day Survey Sent", "30-Day Survey Filled"]
-    S14       = ["14-Day Survey Sent", "14-Day Survey Filled"]
+    # Cumulative like CONTACTED/INTAKE/DELIVERED above — a creator who's
+    # progressed to 30-Day Survey has necessarily already done the 14-Day
+    # one, so they should still count there too, not drop out of it.
+    S14       = ["14-Day Survey Sent", "14-Day Survey Filled", "30-Day Survey Sent", "30-Day Survey Filled"]
     S30       = ["30-Day Survey Sent", "30-Day Survey Filled"]
 
     TEST_OFFSET = 113  # TEMPORARY — remove this line and the use below to revert
@@ -608,6 +611,15 @@ def influencers_set_stage(page_id):
 
     r = requests.get("https://api.notion.com/v1/pages/" + page_id, headers=NOTION_HEADERS)
     page = r.json()
+
+    # Pipeline gate: the 30-Day survey can't start before the 14-Day one is
+    # actually filled — skipping straight to 30-Day would silently count as
+    # if 14-Day happened too (S14 is cumulative), which isn't true yet.
+    if stage in ("30-Day Survey Sent", "30-Day Survey Filled"):
+        current_stage = get_prop(page, "Stage")
+        if current_stage not in ("14-Day Survey Filled", "30-Day Survey Sent", "30-Day Survey Filled"):
+            return jsonify({"error": "Can't move to a 30-Day Survey stage until 14-Day Survey Filled is set first"}), 400
+
     props = {"Stage": {"select": {"name": stage}}}
     prop_schema = page.get("properties", {}).get(stage, {})
     if prop_schema.get("type") == "date" and not get_prop(page, stage):
